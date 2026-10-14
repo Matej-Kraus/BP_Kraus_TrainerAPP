@@ -21,10 +21,10 @@ from app.scripts.sim_match_core_v2 import (
     plan_substitutions,
     sample_match_profile,
 )
+from app.services.common import get_match_or_404
 from app.services.match_service import (
     delete_match,
     finish_match,
-    get_match_or_404,
     half_time,
     start_match,
     start_second_half,

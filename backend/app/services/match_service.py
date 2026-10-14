@@ -2,29 +2,15 @@
 
 from sqlalchemy.orm import Session
 
-from app.exceptions import BadRequestError, NotFoundError
+from app.exceptions import BadRequestError
 from app.models.match import Match
 from app.models.match_event import MatchEvent
 from app.models.match_lineup import MatchLineup
 from app.models.match_player_rating import MatchPlayerRating
 from app.models.match_player_stats import MatchPlayerStats
 from app.models.match_substitution import MatchSubstitution
+from app.services.common import get_match_or_404
 from app.util.time import utcnow
-
-
-def get_match_for_club(db: Session, match_id: int, club_id: int) -> Match | None:
-    return (
-        db.query(Match)
-        .filter(Match.id == match_id, Match.club_id == club_id)
-        .first()
-    )
-
-
-def get_match_or_404(db: Session, match_id: int, club_id: int) -> Match:
-    m = get_match_for_club(db, match_id, club_id)
-    if not m:
-        raise NotFoundError("Match not found")
-    return m
 
 
 def start_match(db: Session, match_id: int, club_id: int) -> Match:

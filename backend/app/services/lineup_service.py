@@ -2,23 +2,12 @@
 
 from sqlalchemy.orm import Session
 
-from app.exceptions import BadRequestError, NotFoundError
-from app.models.match import Match
+from app.exceptions import BadRequestError
 from app.models.match_lineup import MatchLineup
 from app.models.player import Player
 from app.models.season_player import SeasonPlayer
 from app.schemas.lineup import LineupSaveRequest
-
-
-def get_match_or_404(db: Session, match_id: int, club_id: int) -> Match:
-    m = (
-        db.query(Match)
-        .filter(Match.id == match_id, Match.club_id == club_id)
-        .first()
-    )
-    if not m:
-        raise NotFoundError("Match not found")
-    return m
+from app.services.common import get_match_or_404
 
 
 def save_lineup(
