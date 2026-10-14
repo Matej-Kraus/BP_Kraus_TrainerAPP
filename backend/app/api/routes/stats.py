@@ -3,6 +3,7 @@ from sqlalchemy.orm import Session
 from sqlalchemy import asc
 
 from app.api.deps import get_current_user, get_db
+from app.common.stats import row_to_stats, zero_stats
 from app.models.match import Match
 from app.models.player import Player
 from app.models.match_lineup import MatchLineup
@@ -68,40 +69,7 @@ def get_roster_with_stats(
 
     def stats_dict(s: MatchPlayerStats | None) -> dict:
         # pokud ještě hráč nemá žádný event, tak stats řádek neexistuje => vrať nuly
-        if not s:
-            return {
-                "goals": 0,
-                "assists": 0,
-                "errors": 0,
-                "won_balls": 0,
-                "lost_balls": 0,
-                "fouls": 0,
-                "passes": 0,
-                "won_duels": 0,
-                "lost_duels": 0,
-                "shots_on_goal": 0,
-                "shots_off_goal": 0,
-                "yellow_cards": 0,
-                "red_cards": 0,
-                "penalties": 0,
-            }
-
-        return {
-            "goals": s.goals,
-            "assists": s.assists,
-            "errors": s.errors,
-            "won_balls": s.won_balls,
-            "lost_balls": s.lost_balls,
-            "fouls": s.fouls,
-            "passes": s.passes,
-            "won_duels": s.won_duels,
-            "lost_duels": s.lost_duels,
-            "shots_on_goal": s.shots_on_goal,
-            "shots_off_goal": s.shots_off_goal,
-            "yellow_cards": s.yellow_cards,
-            "red_cards": s.red_cards,
-            "penalties": s.penalties,
-        }
+        return zero_stats() if s is None else row_to_stats(s)
 
     return [
         {

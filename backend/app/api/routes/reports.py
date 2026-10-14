@@ -3,6 +3,7 @@ from sqlalchemy.orm import Session
 from sqlalchemy import and_, case, desc, distinct, func
 
 from app.api.deps import get_current_user, get_db
+from app.common.stats import row_to_stats, stat_sum_columns, zero_stats
 from app.models.match_event import MatchEvent
 from app.models.match import Match
 from app.models.player import Player
@@ -16,29 +17,8 @@ router = APIRouter(tags=["reports"])
 
 def _sum_stats(q) -> StatsSumOut:
     row = q.one()
-
-    # row = (games, goals, assists, ...)
-    # pokud není nic, SUM vrací None => převedeme na 0
-    def z(x):
-        return int(x or 0)
-
-    return StatsSumOut(
-        games=z(row.games),
-        goals=z(row.goals),
-        assists=z(row.assists),
-        errors=z(row.errors),
-        won_balls=z(row.won_balls),
-        lost_balls=z(row.lost_balls),
-        fouls=z(row.fouls),
-        passes=z(row.passes),
-        won_duels=z(row.won_duels),
-        lost_duels=z(row.lost_duels),
-        shots_on_goal=z(row.shots_on_goal),
-        shots_off_goal=z(row.shots_off_goal),
-        yellow_cards=z(row.yellow_cards),
-        red_cards=z(row.red_cards),
-        penalties=z(row.penalties),
-    )
+    # SUM returns NULL when there are no rows -> row_to_stats converts to 0
+    return StatsSumOut(games=int(row.games or 0), **row_to_stats(row))
 
 
 @router.get("/players/{player_id}/stats/season/{season_id}", response_model=StatsSumOut)
@@ -66,20 +46,7 @@ def player_stats_season(
     q = (
         db.query(
             func.count(MatchPlayerStats.id).label("games"),
-            func.sum(MatchPlayerStats.goals).label("goals"),
-            func.sum(MatchPlayerStats.assists).label("assists"),
-            func.sum(MatchPlayerStats.errors).label("errors"),
-            func.sum(MatchPlayerStats.won_balls).label("won_balls"),
-            func.sum(MatchPlayerStats.lost_balls).label("lost_balls"),
-            func.sum(MatchPlayerStats.fouls).label("fouls"),
-            func.sum(MatchPlayerStats.passes).label("passes"),
-            func.sum(MatchPlayerStats.won_duels).label("won_duels"),
-            func.sum(MatchPlayerStats.lost_duels).label("lost_duels"),
-            func.sum(MatchPlayerStats.shots_on_goal).label("shots_on_goal"),
-            func.sum(MatchPlayerStats.shots_off_goal).label("shots_off_goal"),
-            func.sum(MatchPlayerStats.yellow_cards).label("yellow_cards"),
-            func.sum(MatchPlayerStats.red_cards).label("red_cards"),
-            func.sum(MatchPlayerStats.penalties).label("penalties"),
+            *stat_sum_columns(),
         )
         .join(Match, Match.id == MatchPlayerStats.match_id)
         .filter(
@@ -120,29 +87,12 @@ def player_stats_last_n(
     match_ids = [x[0] for x in last_match_ids]
     if not match_ids:
         # žádné zápasy -> nuly
-        return StatsSumOut(
-            games=0, goals=0, assists=0, errors=0, won_balls=0, lost_balls=0, fouls=0,
-            passes=0, won_duels=0, lost_duels=0, shots_on_goal=0, shots_off_goal=0,
-            yellow_cards=0, red_cards=0, penalties=0
-        )
+        return StatsSumOut(games=0, **zero_stats())
 
     q = (
         db.query(
             func.count(MatchPlayerStats.id).label("games"),
-            func.sum(MatchPlayerStats.goals).label("goals"),
-            func.sum(MatchPlayerStats.assists).label("assists"),
-            func.sum(MatchPlayerStats.errors).label("errors"),
-            func.sum(MatchPlayerStats.won_balls).label("won_balls"),
-            func.sum(MatchPlayerStats.lost_balls).label("lost_balls"),
-            func.sum(MatchPlayerStats.fouls).label("fouls"),
-            func.sum(MatchPlayerStats.passes).label("passes"),
-            func.sum(MatchPlayerStats.won_duels).label("won_duels"),
-            func.sum(MatchPlayerStats.lost_duels).label("lost_duels"),
-            func.sum(MatchPlayerStats.shots_on_goal).label("shots_on_goal"),
-            func.sum(MatchPlayerStats.shots_off_goal).label("shots_off_goal"),
-            func.sum(MatchPlayerStats.yellow_cards).label("yellow_cards"),
-            func.sum(MatchPlayerStats.red_cards).label("red_cards"),
-            func.sum(MatchPlayerStats.penalties).label("penalties"),
+            *stat_sum_columns(),
         )
         .filter(
             MatchPlayerStats.player_id == player_id,
@@ -180,20 +130,7 @@ def team_stats_season(
     q = (
         db.query(
             func.count(distinct(MatchPlayerStats.match_id)).label("games"),
-            func.sum(MatchPlayerStats.goals).label("goals"),
-            func.sum(MatchPlayerStats.assists).label("assists"),
-            func.sum(MatchPlayerStats.errors).label("errors"),
-            func.sum(MatchPlayerStats.won_balls).label("won_balls"),
-            func.sum(MatchPlayerStats.lost_balls).label("lost_balls"),
-            func.sum(MatchPlayerStats.fouls).label("fouls"),
-            func.sum(MatchPlayerStats.passes).label("passes"),
-            func.sum(MatchPlayerStats.won_duels).label("won_duels"),
-            func.sum(MatchPlayerStats.lost_duels).label("lost_duels"),
-            func.sum(MatchPlayerStats.shots_on_goal).label("shots_on_goal"),
-            func.sum(MatchPlayerStats.shots_off_goal).label("shots_off_goal"),
-            func.sum(MatchPlayerStats.yellow_cards).label("yellow_cards"),
-            func.sum(MatchPlayerStats.red_cards).label("red_cards"),
-            func.sum(MatchPlayerStats.penalties).label("penalties"),
+            *stat_sum_columns(),
         )
         .join(Match, Match.id == MatchPlayerStats.match_id)
         .filter(Match.season_id == season_id, Match.club_id == current_user.club_id)
@@ -226,22 +163,9 @@ def team_stats_season(
     )
 
     return TeamSeasonStatsOut(
-        games=z(row.games),
+        games=int(row.games or 0),
         season_matches_total=int(season_matches_total),
-        goals=z(row.goals),
-        assists=z(row.assists),
-        errors=z(row.errors),
-        won_balls=z(row.won_balls),
-        lost_balls=z(row.lost_balls),
-        fouls=z(row.fouls),
-        passes=z(row.passes),
-        won_duels=z(row.won_duels),
-        lost_duels=z(row.lost_duels),
-        shots_on_goal=z(row.shots_on_goal),
-        shots_off_goal=z(row.shots_off_goal),
-        yellow_cards=z(row.yellow_cards),
-        red_cards=z(row.red_cards),
-        penalties=z(row.penalties),
-        passes_success=z(pass_row.passes_success),
-        passes_unsuccess=z(pass_row.passes_unsuccess),
+        **row_to_stats(row),
+        passes_success=int(pass_row.passes_success or 0),
+        passes_unsuccess=int(pass_row.passes_unsuccess or 0),
     )

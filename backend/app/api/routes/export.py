@@ -3,10 +3,10 @@ import io
 
 from fastapi import APIRouter, Depends, HTTPException
 from fastapi.responses import Response
-from sqlalchemy import func
 from sqlalchemy.orm import Session
 
 from app.api.deps import get_db, require_role
+from app.common.stats import STAT_COLUMNS, row_to_stats, stat_sum_columns
 from app.models.match import Match
 from app.models.match_event import MatchEvent
 from app.models.match_lineup import MatchLineup
@@ -124,71 +124,19 @@ def export_team_stats_csv(
 
     q = (
         db.query(
-            func.sum(MatchPlayerStats.goals).label("goals"),
-            func.sum(MatchPlayerStats.assists).label("assists"),
-            func.sum(MatchPlayerStats.errors).label("errors"),
-            func.sum(MatchPlayerStats.won_balls).label("won_balls"),
-            func.sum(MatchPlayerStats.lost_balls).label("lost_balls"),
-            func.sum(MatchPlayerStats.fouls).label("fouls"),
-            func.sum(MatchPlayerStats.passes).label("passes"),
-            func.sum(MatchPlayerStats.won_duels).label("won_duels"),
-            func.sum(MatchPlayerStats.lost_duels).label("lost_duels"),
-            func.sum(MatchPlayerStats.shots_on_goal).label("shots_on_goal"),
-            func.sum(MatchPlayerStats.shots_off_goal).label("shots_off_goal"),
-            func.sum(MatchPlayerStats.yellow_cards).label("yellow_cards"),
-            func.sum(MatchPlayerStats.red_cards).label("red_cards"),
-            func.sum(MatchPlayerStats.penalties).label("penalties"),
+            *stat_sum_columns(),
         )
         .join(Match, Match.id == MatchPlayerStats.match_id)
         .filter(Match.season_id == season_id, Match.club_id == current_user.club_id)
     )
     row = q.one()
 
-    def z(x):
-        return int(x or 0)
+    totals = row_to_stats(row)
 
     buf = io.StringIO()
     w = csv.writer(buf)
-    w.writerow(
-        [
-            "season_id",
-            "season_name",
-            "goals",
-            "assists",
-            "errors",
-            "won_balls",
-            "lost_balls",
-            "fouls",
-            "passes",
-            "won_duels",
-            "lost_duels",
-            "shots_on_goal",
-            "shots_off_goal",
-            "yellow_cards",
-            "red_cards",
-            "penalties",
-        ]
-    )
-    w.writerow(
-        [
-            season.id,
-            season.name,
-            z(row.goals),
-            z(row.assists),
-            z(row.errors),
-            z(row.won_balls),
-            z(row.lost_balls),
-            z(row.fouls),
-            z(row.passes),
-            z(row.won_duels),
-            z(row.lost_duels),
-            z(row.shots_on_goal),
-            z(row.shots_off_goal),
-            z(row.yellow_cards),
-            z(row.red_cards),
-            z(row.penalties),
-        ]
-    )
+    w.writerow(["season_id", "season_name", *STAT_COLUMNS])
+    w.writerow([season.id, season.name, *(totals[c] for c in STAT_COLUMNS)])
 
     return _csv_response(f"season_{season_id}_team_stats.csv", buf.getvalue())
 
