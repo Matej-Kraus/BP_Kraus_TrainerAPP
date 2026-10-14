@@ -6,7 +6,10 @@ import pytest
 from fastapi.testclient import TestClient
 
 # Use isolated DB for tests (prevents clashes with running dev servers)
-os.environ["TRAINERAPP_DATABASE_URL"] = "sqlite:///./test.db"
+# Set TRAINERAPP_TEST_DATABASE_URL (e.g. postgresql+psycopg://...) to run against PostgreSQL.
+TEST_DATABASE_URL = os.getenv("TRAINERAPP_TEST_DATABASE_URL", "sqlite:///./test.db")
+os.environ["TRAINERAPP_DATABASE_URL"] = TEST_DATABASE_URL
+os.environ["TRAINERAPP_ALLOW_DB_RESET"] = "true"  # test database is disposable
 
 # Ensure backend/ is on sys.path for imports like `app.main`
 sys.path.insert(0, str(Path(__file__).resolve().parents[1]))

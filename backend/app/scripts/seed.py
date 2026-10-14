@@ -3,6 +3,7 @@ from __future__ import annotations
 import os
 from pathlib import Path
 from datetime import datetime
+from sqlalchemy import text
 from sqlalchemy.orm import Session
 
 from alembic import command
@@ -23,26 +24,41 @@ def reset_db() -> None:
     """
     Development seed reset.
 
-    Deletes the SQLite DB file and recreates schema via Alembic migrations.
+    SQLite: deletes the DB file. PostgreSQL: drops and recreates the public schema
+    (only with TRAINERAPP_ALLOW_DB_RESET=true). Schema is then rebuilt via Alembic.
     """
     backend_root = Path(__file__).resolve().parents[2]  # backend/
 
-    url = os.getenv("TRAINERAPP_DATABASE_URL", "sqlite:///./app.db")
-    if not url.startswith("sqlite:///"):
-        raise RuntimeError("seed.py supports only sqlite:/// URLs")
-    rel_path = url.removeprefix("sqlite:///")
-    db_path = (backend_root / rel_path).resolve()
+    if os.getenv("TRAINERAPP_ENV", "").lower() == "production":
+        raise RuntimeError("Refusing to reset the database when TRAINERAPP_ENV=production")
 
-    # Ensure no open connections keep SQLite file locked (important for test resets)
+    url = engine.url
+    # Ensure no open connections keep the DB locked (important for test resets)
     engine.dispose()
 
-    for suffix in ("", "-wal", "-shm"):
-        p = Path(str(db_path) + suffix)
-        if p.exists():
-            p.unlink()
+    if url.get_backend_name() == "sqlite":
+        db_path = Path(url.database or "app.db")
+        if not db_path.is_absolute():
+            db_path = (backend_root / db_path).resolve()
+        for suffix in ("", "-wal", "-shm"):
+            p = Path(str(db_path) + suffix)
+            if p.exists():
+                p.unlink()
+    elif url.get_backend_name() == "postgresql":
+        if os.getenv("TRAINERAPP_ALLOW_DB_RESET", "").lower() not in ("1", "true", "yes"):
+            raise RuntimeError(
+                "Refusing to drop the PostgreSQL schema. "
+                "Set TRAINERAPP_ALLOW_DB_RESET=true if this is a disposable database."
+            )
+        with engine.begin() as conn:
+            conn.execute(text("DROP SCHEMA public CASCADE"))
+            conn.execute(text("CREATE SCHEMA public"))
+        engine.dispose()
+    else:
+        raise RuntimeError(f"seed.py does not support the {url.get_backend_name()} backend")
 
     cfg = Config(str(backend_root / "alembic.ini"))
-    cfg.set_main_option("sqlalchemy.url", url)
+    cfg.set_main_option("sqlalchemy.url", url.render_as_string(hide_password=False))
     command.upgrade(cfg, "head")
 
 
