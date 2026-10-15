@@ -17,6 +17,8 @@ def save_lineup(
     payload: LineupSaveRequest,
 ) -> dict:
     m = get_match_or_404(db, match_id, club_id)
+    if m.status != "planned":
+        raise BadRequestError("Lineup can only be changed before the match starts")
 
     seen_players: set[int] = set()
     seen_numbers: set[int] = set()

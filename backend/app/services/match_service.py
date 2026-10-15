@@ -61,6 +61,10 @@ def start_second_half(db: Session, match_id: int, club_id: int) -> Match:
 
 def finish_match(db: Session, match_id: int, club_id: int) -> Match:
     m = get_match_or_404(db, match_id, club_id)
+    if m.status == "finished":
+        return m  # idempotent: a repeated request (double click, retry) changes nothing
+    if m.status == "planned":
+        raise BadRequestError("Match has not started")
     if m.status in ("live_half_1", "live_half_2") and m.live_started_at:
         now = utcnow()
         started = m.live_started_at
