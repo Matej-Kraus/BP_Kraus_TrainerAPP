@@ -1,30 +1,25 @@
-import { useEffect, useMemo, useState } from "react";
+import { useMemo, useState } from "react";
 import { useParams, useNavigate } from "react-router-dom";
+import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { toast } from "sonner";
 
 import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
-import { api } from "@/api/client";
+import {
+  getLineupEditor,
+  saveLineup,
+  type LineupEditorPlayer,
+  type LineupEditorRole,
+  type LineupItem,
+} from "@/api/lineup";
 import { useAuth } from "@/auth/AuthContext";
 import { getErrorMessage } from "@/lib/errors";
 
-type Role = "starter" | "sub" | "out";
+type Role = LineupEditorRole;
+type PlayerRow = LineupEditorPlayer;
 
-type PlayerRow = {
-  player_id: number;
-  first_name: string;
-  last_name: string;
-  default_jersey_number: number;
-  role: Role;
-  jersey_number_match: number | null; // null => použije se default při uložení
-};
-
-type LineupEditorResponse = {
-  match_id: number;
-  taken_numbers: number[];
-  players: PlayerRow[];
-};
+const NO_ROWS: PlayerRow[] = [];
 
 function roleText(role: Role) {
   if (role === "starter") return "Hraje";
@@ -32,53 +27,56 @@ function roleText(role: Role) {
   return "Nehraje";
 }
 
+function sortPlayers(players: PlayerRow[]): PlayerRow[] {
+  return [...players].sort((a, b) => {
+    const d = a.default_jersey_number - b.default_jersey_number;
+    if (d !== 0) return d;
+    const an = `${a.last_name} ${a.first_name}`.toLowerCase();
+    const bn = `${b.last_name} ${b.first_name}`.toLowerCase();
+    return an.localeCompare(bn);
+  });
+}
+
 export default function LineupPage() {
   const { matchId } = useParams();
   const navigate = useNavigate();
+  const qc = useQueryClient();
   const auth = useAuth();
   const isCoach = auth.user?.role === "coach";
 
   const id = Number(matchId);
   const isValidId = Number.isFinite(id);
 
-  const [loading, setLoading] = useState(true);
-  const [saving, setSaving] = useState(false);
-  const [rows, setRows] = useState<PlayerRow[]>([]);
-  const [error, setError] = useState<string | null>(null);
+  const lineupQuery = useQuery({
+    queryKey: ["lineup-editor", id],
+    queryFn: async () => sortPlayers((await getLineupEditor(id)).players),
+    enabled: isValidId,
+    refetchOnWindowFocus: false,
+  });
 
-  useEffect(() => {
-    async function load() {
-      try {
-        setLoading(true);
-        setError(null);
+  // Local edits; null = untouched, so the server data is shown.
+  const [draft, setDraft] = useState<PlayerRow[] | null>(null);
+  const [actionError, setActionError] = useState<string | null>(null);
 
-        const res = await api.get<LineupEditorResponse>(`/matches/${id}/lineup-editor`);
+  const serverRows = lineupQuery.data ?? NO_ROWS;
+  const rows = draft ?? serverRows;
+  const loading = lineupQuery.isLoading;
+  const error =
+    actionError ??
+    (!isValidId ? "Invalid match id" : lineupQuery.isError ? getErrorMessage(lineupQuery.error) : null);
 
-        const sorted = [...res.data.players].sort((a, b) => {
-          const d = a.default_jersey_number - b.default_jersey_number;
-          if (d !== 0) return d;
-          const an = `${a.last_name} ${a.first_name}`.toLowerCase();
-          const bn = `${b.last_name} ${b.first_name}`.toLowerCase();
-          return an.localeCompare(bn);
-        });
+  const saveMutation = useMutation({
+    mutationFn: (items: LineupItem[]) => saveLineup(id, items),
+    onSuccess: async () => {
+      toast.success("Sestava uložena");
+      await Promise.all([
+        qc.invalidateQueries({ queryKey: ["lineup-editor", id] }),
+        qc.invalidateQueries({ queryKey: ["roster-with-stats", id] }),
+      ]);
+    },
+  });
 
-        setRows(sorted);
-      } catch (e: unknown) {
-        setError(getErrorMessage(e));
-      } finally {
-        setLoading(false);
-      }
-    }
-
-    if (!isValidId) {
-      setLoading(false);
-      setRows([]);
-      setError("Invalid match id");
-      return;
-    }
-
-    load();
-  }, [id, isValidId]);
+  const saving = saveMutation.isPending;
 
   const startersCount = useMemo(
     () => rows.filter((r) => r.role === "starter").length,
@@ -107,76 +105,62 @@ export default function LineupPage() {
     const n = t === "" ? null : Number(t);
     const safe = n !== null && Number.isFinite(n) ? n : null;
 
-    setRows((prev) =>
-      prev.map((r) =>
+    setDraft((prev) =>
+      (prev ?? serverRows).map((r) =>
         r.player_id === playerId ? { ...r, jersey_number_match: safe } : r
       )
     );
   }
 
   function trySetRole(playerId: number, role: Role) {
-    setRows((prev) => {
-      const current = prev.find((p) => p.player_id === playerId);
-      if (!current) return prev;
-      if (current.role === role) return prev;
+    const current = rows.find((p) => p.player_id === playerId);
+    if (!current || current.role === role) return;
 
-      const starters = prev.filter((p) => p.role === "starter").length;
-      const subs = prev.filter((p) => p.role === "sub").length;
+    const starters = rows.filter((p) => p.role === "starter").length;
+    const subs = rows.filter((p) => p.role === "sub").length;
 
-      if (role === "starter" && starters >= 11) {
-        setError("V základu může být max 11 hráčů.");
-        return prev;
-      }
-      if (role === "sub" && subs >= 5) {
-        setError("Na lavičce může být max 5 hráčů.");
-        return prev;
-      }
-
-      setError(null);
-      return prev.map((p) => (p.player_id === playerId ? { ...p, role } : p));
-    });
-  }
-
-  async function save(): Promise<void> {
-    setSaving(true);
-    setError(null);
-
-    if (!canSave) {
-      setError("Oprav duplicitní čísla dresů nebo match id.");
-      setSaving(false);
+    if (role === "starter" && starters >= 11) {
+      setActionError("V základu může být max 11 hráčů.");
+      return;
+    }
+    if (role === "sub" && subs >= 5) {
+      setActionError("Na lavičce může být max 5 hráčů.");
       return;
     }
 
-    try {
-      const payload = {
-        items: rows
-          .filter((r) => r.role !== "out")
-          .map((r) => ({
-            player_id: r.player_id,
-            role: r.role,
-            jersey_number_match: r.jersey_number_match ?? r.default_jersey_number,
-          })),
-      };
+    setActionError(null);
+    setDraft(rows.map((p) => (p.player_id === playerId ? { ...p, role } : p)));
+  }
 
-      await api.put(`/matches/${id}/lineup`, payload);
-      toast.success("Sestava uložena");
+  /** Resolves to true only when the lineup was actually saved. */
+  async function save(): Promise<boolean> {
+    setActionError(null);
+
+    if (!canSave) {
+      setActionError("Oprav duplicitní čísla dresů nebo match id.");
+      return false;
+    }
+
+    try {
+      const items: LineupItem[] = rows
+        .filter((r): r is PlayerRow & { role: "starter" | "sub" } => r.role !== "out")
+        .map((r) => ({
+          player_id: r.player_id,
+          role: r.role,
+          jersey_number_match: r.jersey_number_match ?? r.default_jersey_number,
+        }));
+      await saveMutation.mutateAsync(items);
+      return true;
     } catch (e: unknown) {
-      setError(getErrorMessage(e));
-      throw e;
-    } finally {
-      setSaving(false);
+      setActionError(getErrorMessage(e));
+      return false;
     }
   }
 
-  function goToLive() {
-    setError(null);
-    save()
-      .then(() => {
-        navigate(`/matches/${id}/live`);
-      })
-      .catch(() => {
-        // Error already set in save()
-      });
+  async function goToLive() {
+    if (await save()) {
+      navigate(`/matches/${id}/live`);
+    }
   }
 
   return (
