@@ -11,6 +11,7 @@ class StatsSumOut(BaseModel):
     lost_balls: int
     fouls: int
     passes: int
+    passes_failed: int
     won_duels: int
     lost_duels: int
     shots_on_goal: int

@@ -1,4 +1,6 @@
-from pydantic import BaseModel, Field, model_validator
+from typing import Literal
+
+from pydantic import BaseModel, Field
 
 from app.common.enums import EventType
 
@@ -11,19 +13,22 @@ class MatchEventCreate(BaseModel):
 
     player_id: int
     event_type: EventType
-    delta: int = Field(..., description="Use +1 or -1")
+    delta: Literal[1] | None = Field(
+        default=None,
+        description="Deprecated: events are always +1. Undo an event with DELETE instead.",
+    )
     half: int = Field(..., ge=1, le=2, description="1 = first half, 2 = second half")
     second_in_match: int = Field(
         ...,
         ge=0,
         description="Exact match time in seconds (0 = kick-off; 2700 = 45:00). Used for analytics.",
     )
-
-    @model_validator(mode="after")
-    def validate_delta(self):
-        if self.delta not in (-1, 1):
-            raise ValueError("delta must be -1 or +1")
-        return self
+    client_event_id: str | None = Field(
+        default=None,
+        min_length=1,
+        max_length=64,
+        description="Client-generated id; sending the same id again returns the existing event.",
+    )
 
 
 class MatchEventOut(BaseModel):
@@ -36,6 +41,8 @@ class MatchEventOut(BaseModel):
     delta: int
     half: int
     second_in_match: int
+    client_event_id: str | None = None
+    created_by_email: str | None = None
 
     class Config:
         from_attributes = True

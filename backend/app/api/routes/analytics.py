@@ -1,10 +1,9 @@
 from fastapi import APIRouter, Depends, HTTPException, Query
-from sqlalchemy import and_, case, func
+from sqlalchemy import func
 from sqlalchemy.orm import Session
 
 from app.api.deps import get_current_user, get_db
 from app.models.match import Match
-from app.models.match_event import MatchEvent
 from app.models.match_player_rating import MatchPlayerRating
 from app.models.match_player_stats import MatchPlayerStats
 from app.models.player import Player
@@ -25,12 +24,14 @@ def _clamp(v: float, min_v: float, max_v: float) -> float:
 
 
 def _compute_auto_rating_from_stats(stats: MatchPlayerStats) -> float:
+    # Failed passes count against successful ones (as before events v2, when '-' reduced the stat).
+    net_passes = max(0, stats.passes - stats.passes_failed)
     positive = (
         stats.goals * 6.3
         + stats.assists * 4.2
         + stats.shots_on_goal * 2.2
         + stats.shots_off_goal * 0.9
-        + stats.passes * 0.115
+        + net_passes * 0.115
         + stats.won_duels * 1.08
         + stats.won_balls * 0.92
         + stats.penalties * 3.0
@@ -44,7 +45,7 @@ def _compute_auto_rating_from_stats(stats: MatchPlayerStats) -> float:
         + stats.red_cards * 2.7
     )
     activity = (
-        stats.passes
+        net_passes
         + stats.won_duels
         + stats.lost_duels
         + stats.shots_on_goal
@@ -105,35 +106,8 @@ def player_performance(
 
     rows = q.all()
 
-    match_ids = [m.id for (m, _s, _r) in rows]
-    pass_map: dict[int, tuple[int, int]] = {}
-    if match_ids:
-        p_plus = func.sum(
-            case(
-                (and_(MatchEvent.event_type == "pass", MatchEvent.delta == 1), 1),
-                else_=0,
-            )
-        )
-        p_minus = func.sum(
-            case(
-                (and_(MatchEvent.event_type == "pass", MatchEvent.delta == -1), 1),
-                else_=0,
-            )
-        )
-        for mid, up, down in (
-            db.query(MatchEvent.match_id, p_plus, p_minus)
-            .filter(
-                MatchEvent.player_id == player_id,
-                MatchEvent.match_id.in_(match_ids),
-            )
-            .group_by(MatchEvent.match_id)
-            .all()
-        ):
-            pass_map[int(mid)] = (int(up or 0), int(down or 0))
-
     resp: list[PlayerMatchPerformanceRow] = []
     for (m, s, r) in rows:
-        ps, pu = pass_map.get(m.id, (0, 0))
         resp.append(
             PlayerMatchPerformanceRow(
                 match_id=m.id,
@@ -144,8 +118,8 @@ def player_performance(
                 stats=MatchPlayerStatsOut.model_validate(s),
                 rating=(r.rating if r else None),
                 note=(r.note if r else None),
-                passes_success=ps,
-                passes_unsuccess=pu,
+                passes_success=s.passes,
+                passes_unsuccess=s.passes_failed,
             )
         )
     return resp
@@ -268,33 +242,6 @@ def team_matches_breakdown(
     if not season:
         raise HTTPException(status_code=404, detail="Season not found")
 
-    p_plus = func.sum(
-        case(
-            (and_(MatchEvent.event_type == "pass", MatchEvent.delta == 1), 1),
-            else_=0,
-        )
-    )
-    p_minus = func.sum(
-        case(
-            (and_(MatchEvent.event_type == "pass", MatchEvent.delta == -1), 1),
-            else_=0,
-        )
-    )
-    pass_subq = (
-        db.query(
-            MatchEvent.match_id.label("match_id"),
-            p_plus.label("passes_success"),
-            p_minus.label("passes_unsuccess"),
-        )
-        .join(Match, Match.id == MatchEvent.match_id)
-        .filter(
-            Match.season_id == season_id,
-            Match.club_id == current_user.club_id,
-        )
-        .group_by(MatchEvent.match_id)
-        .subquery()
-    )
-
     rows = (
         db.query(
             Match.id.label("match_id"),
@@ -305,8 +252,10 @@ def team_matches_breakdown(
             func.coalesce(func.sum(MatchPlayerStats.goals), 0).label("goals"),
             func.coalesce(func.sum(MatchPlayerStats.assists), 0).label("assists"),
             func.coalesce(func.sum(MatchPlayerStats.passes), 0).label("passes"),
-            func.coalesce(pass_subq.c.passes_success, 0).label("passes_success"),
-            func.coalesce(pass_subq.c.passes_unsuccess, 0).label("passes_unsuccess"),
+            func.coalesce(func.sum(MatchPlayerStats.passes), 0).label("passes_success"),
+            func.coalesce(func.sum(MatchPlayerStats.passes_failed), 0).label(
+                "passes_unsuccess"
+            ),
             func.coalesce(func.sum(MatchPlayerStats.shots_on_goal), 0).label(
                 "shots_on_goal"
             ),
@@ -322,13 +271,8 @@ def team_matches_breakdown(
             func.coalesce(func.sum(MatchPlayerStats.red_cards), 0).label("red_cards"),
         )
         .outerjoin(MatchPlayerStats, MatchPlayerStats.match_id == Match.id)
-        .outerjoin(pass_subq, pass_subq.c.match_id == Match.id)
         .filter(Match.season_id == season_id, Match.club_id == current_user.club_id)
-        .group_by(
-            Match.id,
-            pass_subq.c.passes_success,
-            pass_subq.c.passes_unsuccess,
-        )
+        .group_by(Match.id)
         .order_by(Match.match_date.asc(), Match.id.asc())
         .all()
     )

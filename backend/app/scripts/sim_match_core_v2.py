@@ -14,7 +14,7 @@ from app.models.match_player_stats import MatchPlayerStats
 from app.models.match_substitution import MatchSubstitution
 from app.models.player import Player
 from app.models.season_player import SeasonPlayer
-from app.services.stats_service import apply_event_to_match_stats
+from app.services.stats_service import recompute_match_stats
 from app.util.time import utcnow
 
 MAX_MATCH_SECOND = 90 * 60
@@ -287,7 +287,7 @@ def generate_events(
         goals = _sample_goal_count(rng, pos, share, profile, shots_on)
 
         events.extend((sec, pid, "pass", 1) for sec in _seconds_for_player(rng, intervals, pass_success))
-        events.extend((sec, pid, "pass", -1) for sec in _seconds_for_player(rng, intervals, pass_fail))
+        events.extend((sec, pid, "pass_failed", 1) for sec in _seconds_for_player(rng, intervals, pass_fail))
         events.extend((sec, pid, "won_duel", 1) for sec in _seconds_for_player(rng, intervals, won_duels))
         events.extend((sec, pid, "lost_duel", 1) for sec in _seconds_for_player(rng, intervals, lost_duels))
         events.extend((sec, pid, "won_ball", 1) for sec in _seconds_for_player(rng, intervals, won_balls))
@@ -347,8 +347,9 @@ def generate_events(
                 created_at=utcnow(),
             )
         )
-        apply_event_to_match_stats(db, match.id, player_id, event_type, delta)
 
+    db.flush()
+    recompute_match_stats(db, match.id)
     db.commit()
     match.status = "finished"
     match.live_started_at = None

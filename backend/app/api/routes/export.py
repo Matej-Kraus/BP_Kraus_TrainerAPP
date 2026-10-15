@@ -68,7 +68,11 @@ def export_match_events_csv(
             (MatchLineup.match_id == MatchEvent.match_id)
             & (MatchLineup.player_id == MatchEvent.player_id),
         )
-        .filter(MatchEvent.match_id == match_id, Player.club_id == current_user.club_id)
+        .filter(
+            MatchEvent.match_id == match_id,
+            MatchEvent.deleted_at.is_(None),
+            Player.club_id == current_user.club_id,
+        )
         .order_by(MatchEvent.second_in_match.asc(), MatchEvent.id.asc())
         .all()
     )

@@ -12,6 +12,7 @@ STAT_COLUMNS: tuple[str, ...] = (
     "lost_balls",
     "fouls",
     "passes",
+    "passes_failed",
     "won_duels",
     "lost_duels",
     "shots_on_goal",

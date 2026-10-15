@@ -21,7 +21,8 @@ class MatchPlayerStats(Base):
     won_balls: Mapped[int] = mapped_column(Integer, nullable=False, default=0)
     lost_balls: Mapped[int] = mapped_column(Integer, nullable=False, default=0)
     fouls: Mapped[int] = mapped_column(Integer, nullable=False, default=0)
-    passes: Mapped[int] = mapped_column(Integer, nullable=False, default=0)
+    passes: Mapped[int] = mapped_column(Integer, nullable=False, default=0)  # successful
+    passes_failed: Mapped[int] = mapped_column(Integer, nullable=False, default=0)
     won_duels: Mapped[int] = mapped_column(Integer, nullable=False, default=0)
     lost_duels: Mapped[int] = mapped_column(Integer, nullable=False, default=0)
     shots_on_goal: Mapped[int] = mapped_column(Integer, nullable=False, default=0)

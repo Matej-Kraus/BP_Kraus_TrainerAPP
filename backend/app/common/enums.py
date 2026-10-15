@@ -11,6 +11,7 @@ class EventType(str, Enum):
     lost_ball = "lost_ball"
     foul = "foul"
     pass_ = "pass"
+    pass_failed = "pass_failed"
     won_duel = "won_duel"
     lost_duel = "lost_duel"
     shot_on_goal = "shot_on_goal"

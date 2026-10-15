@@ -1,11 +1,10 @@
 from fastapi import APIRouter, Depends, HTTPException
-from sqlalchemy import and_, case, desc, distinct, func
+from sqlalchemy import desc, distinct, func
 from sqlalchemy.orm import Session
 
 from app.api.deps import get_current_user, get_db
 from app.common.stats import row_to_stats, stat_sum_columns, zero_stats
 from app.models.match import Match
-from app.models.match_event import MatchEvent
 from app.models.match_player_stats import MatchPlayerStats
 from app.models.player import Player
 from app.models.season import Season
@@ -140,32 +139,10 @@ def team_stats_season(
     def z(x):
         return int(x or 0)
 
-    p_plus = func.sum(
-        case(
-            (and_(MatchEvent.event_type == "pass", MatchEvent.delta == 1), 1),
-            else_=0,
-        )
-    )
-    p_minus = func.sum(
-        case(
-            (and_(MatchEvent.event_type == "pass", MatchEvent.delta == -1), 1),
-            else_=0,
-        )
-    )
-    pass_row = (
-        db.query(p_plus.label("passes_success"), p_minus.label("passes_unsuccess"))
-        .join(Match, Match.id == MatchEvent.match_id)
-        .filter(
-            Match.season_id == season_id,
-            Match.club_id == current_user.club_id,
-        )
-        .one()
-    )
-
     return TeamSeasonStatsOut(
         games=int(row.games or 0),
         season_matches_total=int(season_matches_total),
         **row_to_stats(row),
-        passes_success=int(pass_row.passes_success or 0),
-        passes_unsuccess=int(pass_row.passes_unsuccess or 0),
+        passes_success=int(row.passes or 0),
+        passes_unsuccess=int(row.passes_failed or 0),
     )
