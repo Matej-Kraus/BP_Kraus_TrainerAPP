@@ -6,6 +6,7 @@ from app.models.match import Match
 from app.models.match_player_rating import MatchPlayerRating
 from app.models.user import User
 from app.schemas.rating import RatingOut, RatingsSaveRequest
+from app.services.ratings_service import save_ratings as ratings_save
 
 router = APIRouter(prefix="/matches", tags=["ratings"])
 
@@ -39,11 +40,5 @@ def save_ratings(
     db: Session = Depends(get_db),
     current_user: User = Depends(require_role("coach")),
 ):
-    from app.exceptions import AppError
-    from app.services.ratings_service import save_ratings as ratings_save
-
-    try:
-        return ratings_save(db, match_id, current_user, payload)
-    except AppError as e:
-        raise HTTPException(status_code=e.status_code, detail=e.message)
+    return ratings_save(db, match_id, current_user, payload)
 

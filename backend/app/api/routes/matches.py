@@ -6,7 +6,6 @@ from sqlalchemy import text
 from sqlalchemy.orm import Session
 
 from app.api.deps import get_current_user, get_db, require_role
-from app.exceptions import AppError
 from app.models.match import Match
 from app.models.player import Player
 from app.models.season import Season
@@ -92,10 +91,7 @@ def get_match(
     db: Session = Depends(get_db),
     current_user: User = Depends(get_current_user),
 ):
-    try:
-        m = get_match_or_404(db, match_id, current_user.club_id)
-    except AppError as e:
-        raise HTTPException(status_code=e.status_code, detail=e.message)
+    m = get_match_or_404(db, match_id, current_user.club_id)
     return m
 
 
@@ -105,10 +101,7 @@ def start_match_route(
     db: Session = Depends(get_db),
     current_user: User = Depends(require_role("coach")),
 ):
-    try:
-        return start_match(db, match_id, current_user.club_id)
-    except AppError as e:
-        raise HTTPException(status_code=e.status_code, detail=e.message)
+    return start_match(db, match_id, current_user.club_id)
 
 
 @router.post("/{match_id}/half-time", response_model=MatchOut)
@@ -117,10 +110,7 @@ def half_time_route(
     db: Session = Depends(get_db),
     current_user: User = Depends(require_role("coach")),
 ):
-    try:
-        return half_time(db, match_id, current_user.club_id)
-    except AppError as e:
-        raise HTTPException(status_code=e.status_code, detail=e.message)
+    return half_time(db, match_id, current_user.club_id)
 
 
 @router.post("/{match_id}/start-second-half", response_model=MatchOut)
@@ -129,10 +119,7 @@ def start_second_half_route(
     db: Session = Depends(get_db),
     current_user: User = Depends(require_role("coach")),
 ):
-    try:
-        return start_second_half(db, match_id, current_user.club_id)
-    except AppError as e:
-        raise HTTPException(status_code=e.status_code, detail=e.message)
+    return start_second_half(db, match_id, current_user.club_id)
 
 
 @router.post("/{match_id}/finish", response_model=MatchOut)
@@ -141,10 +128,7 @@ def finish_match_route(
     db: Session = Depends(get_db),
     current_user: User = Depends(require_role("coach")),
 ):
-    try:
-        return finish_match(db, match_id, current_user.club_id)
-    except AppError as e:
-        raise HTTPException(status_code=e.status_code, detail=e.message)
+    return finish_match(db, match_id, current_user.club_id)
 
 
 @router.delete("/{match_id}", status_code=204)
@@ -153,10 +137,7 @@ def delete_match_route(
     db: Session = Depends(get_db),
     current_user: User = Depends(require_role("coach")),
 ):
-    try:
-        delete_match(db, match_id, current_user.club_id)
-    except AppError as e:
-        raise HTTPException(status_code=e.status_code, detail=e.message)
+    delete_match(db, match_id, current_user.club_id)
 
 
 @router.post("/generate-season-demo/run", response_model=SeasonGenerationOut)

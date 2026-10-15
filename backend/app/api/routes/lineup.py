@@ -9,6 +9,7 @@ from app.models.match_lineup import MatchLineup
 from app.models.user import User
 from app.models.season_player import SeasonPlayer
 from app.schemas.lineup import LineupSaveRequest, LineupEditorResponse, LineupEditorPlayer
+from app.services.lineup_service import save_lineup as lineup_save
 
 router = APIRouter(prefix="/matches", tags=["lineup"])
 
@@ -75,13 +76,7 @@ def save_lineup(
     db: Session = Depends(get_db),
     current_user: User = Depends(require_role("coach")),
 ):
-    from app.exceptions import AppError
-    from app.services.lineup_service import save_lineup as lineup_save
-
-    try:
-        return lineup_save(db, match_id, current_user.club_id, payload)
-    except AppError as e:
-        raise HTTPException(status_code=e.status_code, detail=e.message)
+    return lineup_save(db, match_id, current_user.club_id, payload)
 
 
 @router.get("/{match_id}/roster")
