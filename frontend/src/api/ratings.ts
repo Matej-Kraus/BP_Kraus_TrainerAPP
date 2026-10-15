@@ -19,3 +19,9 @@ export async function saveRatings(matchId: number, items: Array<{ player_id: num
   return res.data;
 }
 
+export type RatingConfig = { auto_weight: number; coach_weight: number };
+
+export async function getRatingConfig() {
+  const res = await api.get<RatingConfig>("/rating-config");
+  return res.data;
+}

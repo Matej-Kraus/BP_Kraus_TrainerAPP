@@ -8,8 +8,11 @@ export type PlayerPerformanceRow = {
   competition?: string | null;
   status: string;
   stats: { match_id: number; player_id: number } & PlayerStats;
+  /** Coach's mark (if any). */
   rating?: number | null;
   note?: string | null;
+  auto_rating: number;
+  final_rating: number;
   /** Pass events with +1 (recorded) */
   passes_success: number;
   /** Pass events with −1 (correction / removed) */

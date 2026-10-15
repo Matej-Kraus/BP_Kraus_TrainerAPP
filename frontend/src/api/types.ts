@@ -23,6 +23,10 @@ export type PlayerStats = {
     role: "starter" | "sub";
     jersey_number_match: number;
     stats: PlayerStats;
+    /** Computed by the backend (single source of truth). */
+    auto_rating: number;
+    coach_rating: number | null;
+    final_rating: number;
     on_field?: boolean;
   };
 

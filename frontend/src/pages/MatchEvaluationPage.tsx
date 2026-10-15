@@ -1,5 +1,6 @@
 import { useEffect, useMemo, useState } from "react";
 import { useNavigate, useParams } from "react-router-dom";
+import { useQuery } from "@tanstack/react-query";
 
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -8,8 +9,8 @@ import { useAuth } from "@/auth/AuthContext";
 import { useLiveMatchData } from "@/features/live-match/useLiveMatchData";
 import { getErrorMessage } from "@/lib/errors";
 import { formatDateTime, matchStatusLabel } from "@/lib/format";
-import type { PlayerStats } from "@/api/types";
-import type { RatingRow } from "@/api/ratings";
+import { getRatingConfig, type RatingRow } from "@/api/ratings";
+import { DEFAULT_RATING_CONFIG, previewFinalRating } from "@/lib/rating";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import {
   Bar,
@@ -21,66 +22,6 @@ import {
   XAxis,
   YAxis,
 } from "recharts";
-
-function clamp(v: number, min: number, max: number): number {
-  return Math.min(max, Math.max(min, v));
-}
-
-function computeAutoRating(stats: PlayerStats): number {
-  // Failed passes count against successful ones (same as the backend).
-  const netPasses = Math.max(0, stats.passes - stats.passes_failed);
-  const positive =
-    stats.goals * 6.3 +
-    stats.assists * 4.2 +
-    stats.shots_on_goal * 2.2 +
-    stats.shots_off_goal * 0.9 +
-    netPasses * 0.115 +
-    stats.won_duels * 1.08 +
-    stats.won_balls * 0.92 +
-    stats.penalties * 3;
-
-  const negative =
-    stats.errors * 1.05 +
-    stats.lost_balls * 0.22 +
-    stats.lost_duels * 0.4 +
-    stats.fouls * 0.24 +
-    stats.yellow_cards * 0.85 +
-    stats.red_cards * 2.7;
-
-  // Small activity bonus so active players are not undervalued.
-  const activity =
-    netPasses +
-    stats.won_duels +
-    stats.lost_duels +
-    stats.shots_on_goal +
-    stats.shots_off_goal +
-    stats.won_balls +
-    stats.lost_balls;
-  const activityBonus = Math.min(1.95, activity * 0.035);
-
-  // Slight uplift to avoid systematically low scores.
-  const score = positive - negative + activityBonus + 1.2;
-
-  // Map raw score into 1–10 range (soft caps).
-  const rawMin = -8;
-  const rawMax = 12;
-  const norm = (score - rawMin) / (rawMax - rawMin);
-  const scaled = 1 + 9 * clamp(norm, 0, 1);
-  return Math.round(scaled * 10) / 10; // one decimal
-}
-
-function computeFinalRating(autoRating: number, coachRating?: number | null): number {
-  if (
-    coachRating == null ||
-    !Number.isFinite(coachRating) ||
-    coachRating < 1 ||
-    coachRating > 10
-  ) {
-    return autoRating;
-  }
-  // Coach input should influence, not dominate.
-  return Math.round((autoRating * 0.8 + coachRating * 0.2 + Number.EPSILON) * 10) / 10;
-}
 
 type RatingsDraft = Record<number, { rating: string; note: string }>;
 
@@ -116,6 +57,14 @@ export default function MatchEvaluationPage() {
   const [error, setError] = useState<string | null>(null);
   const [ratingsDraft, setRatingsDraft] = useState<RatingsDraft>({});
 
+  const ratingConfigQuery = useQuery({
+    queryKey: ["rating-config"],
+    queryFn: getRatingConfig,
+    staleTime: Infinity,
+    refetchOnWindowFocus: false,
+  });
+  const ratingConfig = ratingConfigQuery.data ?? DEFAULT_RATING_CONFIG;
+
   const {
     match,
     roster,
@@ -137,7 +86,7 @@ export default function MatchEvaluationPage() {
     const pr = roster.filter((r) => played.has(r.player_id));
     const auto: Record<number, number> = {};
     pr.forEach((p) => {
-      auto[p.player_id] = computeAutoRating(p.stats);
+      auto[p.player_id] = p.auto_rating;
     });
     return { playedRoster: pr, autoRatings: auto, playedIds: played };
   }, [roster, substitutions]);
@@ -354,7 +303,7 @@ export default function MatchEvaluationPage() {
       const draft = ratingsDraft[p.player_id] ?? { rating: "", note: "" };
       const manualNum = Number(draft.rating);
       const hasManual = Number.isFinite(manualNum) && manualNum >= 1 && manualNum <= 10;
-      const finalRating = computeFinalRating(auto, hasManual ? manualNum : null);
+      const finalRating = previewFinalRating(auto, hasManual ? manualNum : null, ratingConfig);
       const shots = p.stats.shots_on_goal + p.stats.shots_off_goal;
       const passCounts = playerPassMap.get(p.player_id) ?? {
         success: p.stats.passes,
@@ -385,7 +334,14 @@ export default function MatchEvaluationPage() {
         teamShare,
       };
     });
-  }, [playedRoster, autoRatings, ratingsDraft, teamTotals.teamActionsForShare, playerPassMap]);
+  }, [
+    playedRoster,
+    autoRatings,
+    ratingsDraft,
+    ratingConfig,
+    teamTotals.teamActionsForShare,
+    playerPassMap,
+  ]);
 
   const ratingOverview = useMemo(() => {
     if (playerEvaluationRows.length === 0) {
@@ -799,7 +755,7 @@ export default function MatchEvaluationPage() {
                       const manualNum = Number(v.rating);
                       const hasManual =
                         Number.isFinite(manualNum) && manualNum >= 1 && manualNum <= 10;
-                      const final = computeFinalRating(auto, hasManual ? manualNum : null);
+                      const final = previewFinalRating(auto, hasManual ? manualNum : null, ratingConfig);
 
                       return (
                         <TableRow key={p.player_id}>

@@ -29,46 +29,6 @@ function shortOpp(name: string, max = 14) {
   return name.length <= max ? name : `${name.slice(0, max - 1)}…`;
 }
 
-function clamp(v: number, min: number, max: number): number {
-  return Math.min(max, Math.max(min, v));
-}
-
-function computeAutoRatingFromStats(stats: {
-  goals: number;
-  assists: number;
-  shots_on_goal: number;
-  shots_off_goal: number;
-  passes: number;
-  won_duels: number;
-  lost_duels: number;
-  won_balls: number;
-  errors: number;
-  fouls: number;
-  yellow_cards: number;
-  red_cards: number;
-  penalties: number;
-}) {
-  const positive =
-    stats.goals * 5 +
-    stats.assists * 3 +
-    stats.shots_on_goal * 1.5 +
-    stats.shots_off_goal * 0.5 +
-    stats.passes * 0.05 +
-    stats.won_duels * 0.7 +
-    stats.won_balls * 0.5 +
-    stats.penalties * 2;
-  const negative =
-    stats.errors * 2 +
-    stats.lost_duels * 0.7 +
-    stats.fouls * 0.5 +
-    stats.yellow_cards * 1.5 +
-    stats.red_cards * 4;
-  const score = positive - negative;
-  const norm = (score - -5) / (15 - -5);
-  const scaled = 1 + 9 * clamp(norm, 0, 1);
-  return Math.round(scaled * 10) / 10;
-}
-
 const COL = {
   goals: "hsl(var(--chart-1))",
   shotsOn: "hsl(var(--chart-2))",
@@ -212,10 +172,7 @@ export default function AnalyticsPage() {
       return null;
     }
 
-    const ratings = rows.map((row) => {
-      const autoRating = computeAutoRatingFromStats(row.stats);
-      return row.rating ?? autoRating;
-    });
+    const ratings = rows.map((row) => row.final_rating);
 
     const sum = ratings.reduce((acc, v) => acc + v, 0);
     const avg = sum / ratings.length;
@@ -562,8 +519,7 @@ export default function AnalyticsPage() {
                 </thead>
                 <tbody>
                   {(perfQuery.data ?? []).map((row) => {
-                    const autoRating = computeAutoRatingFromStats(row.stats);
-                    const finalRating = row.rating ?? autoRating;
+                    const finalRating = row.final_rating;
                     return (
                       <tr
                         key={row.match_id}
