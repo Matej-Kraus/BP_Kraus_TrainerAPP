@@ -19,23 +19,7 @@ import {
 import type { MatchEvent, RosterWithStatsRow } from "@/api/types";
 import { listRatings, saveRatings } from "@/api/ratings";
 import { getErrorMessage } from "@/lib/errors";
-
-const EVENT_TO_STATS_KEY = {
-  goal: "goals",
-  assist: "assists",
-  error: "errors",
-  won_ball: "won_balls",
-  lost_ball: "lost_balls",
-  foul: "fouls",
-  pass: "passes",
-  won_duel: "won_duels",
-  lost_duel: "lost_duels",
-  shot_on_goal: "shots_on_goal",
-  shot_off_goal: "shots_off_goal",
-  yellow_card: "yellow_cards",
-  red_card: "red_cards",
-  penalty: "penalties",
-} as const;
+import { EVENT_TO_STATS_KEY } from "@/lib/events";
 
 export function useLiveMatchData(matchId: number, isValidMatchId: boolean) {
   const qc = useQueryClient();

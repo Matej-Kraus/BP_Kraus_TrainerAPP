@@ -3,7 +3,7 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import type { MatchEvent, RosterWithStatsRow } from "@/api/types";
 import type { EventType } from "@/api/matches";
 
-import { EVENT_LABEL } from "./EventControlsCard";
+import { EVENT_LABELS } from "@/lib/events";
 import { formatClock } from "@/lib/format";
 import { playerName } from "@/features/live-match/utils";
 
@@ -35,7 +35,7 @@ export function TimelineCard({ events, roster }: Props) {
         <div className="space-y-2">
           {events.map((ev) => {
             const who = roster.find((r) => r.player_id === ev.player_id);
-            const label = EVENT_LABEL[ev.event_type as EventType] ?? ev.event_type;
+            const label = EVENT_LABELS[ev.event_type as EventType] ?? ev.event_type;
             return (
               <div
                 key={ev.id}

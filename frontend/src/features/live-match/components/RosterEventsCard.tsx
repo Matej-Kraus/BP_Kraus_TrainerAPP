@@ -5,69 +5,23 @@ import type { EventType } from "@/api/matches";
 import type { RosterWithStatsRow } from "@/api/types";
 
 import { playerName } from "@/features/live-match/utils";
+import { EVENT_LABELS, EVENT_ORDER, EVENT_TO_STATS_KEY } from "@/lib/events";
 
-type EventDef = {
-  label: string;
-  toneClass: string;
-};
-
-const EVENT_DEF: Record<EventType, EventDef> = {
-  goal: {
-    label: "Gól",
-    toneClass: "border-emerald-200 bg-emerald-50/70 dark:border-emerald-900 dark:bg-emerald-950/30",
-  },
-  assist: {
-    label: "Asistence",
-    toneClass: "border-lime-200 bg-lime-50/70 dark:border-lime-900 dark:bg-lime-950/30",
-  },
-  shot_on_goal: {
-    label: "Střela na bránu",
-    toneClass: "border-sky-200 bg-sky-50/70 dark:border-sky-900 dark:bg-sky-950/30",
-  },
-  shot_off_goal: {
-    label: "Střela mimo",
-    toneClass: "border-blue-200 bg-blue-50/70 dark:border-blue-900 dark:bg-blue-950/30",
-  },
-  penalty: {
-    label: "Penalta",
-    toneClass: "border-cyan-200 bg-cyan-50/70 dark:border-cyan-900 dark:bg-cyan-950/30",
-  },
-  pass: {
-    label: "Přihrávka",
-    toneClass: "border-indigo-200 bg-indigo-50/70 dark:border-indigo-900 dark:bg-indigo-950/30",
-  },
-  won_ball: {
-    label: "Zisk míče",
-    toneClass: "border-violet-200 bg-violet-50/70 dark:border-violet-900 dark:bg-violet-950/30",
-  },
-  lost_ball: {
-    label: "Ztráta míče",
-    toneClass: "border-fuchsia-200 bg-fuchsia-50/70 dark:border-fuchsia-900 dark:bg-fuchsia-950/30",
-  },
-  won_duel: {
-    label: "Souboj vyhraný",
-    toneClass: "border-orange-200 bg-orange-50/70 dark:border-orange-900 dark:bg-orange-950/30",
-  },
-  lost_duel: {
-    label: "Souboj prohraný",
-    toneClass: "border-amber-200 bg-amber-50/70 dark:border-amber-900 dark:bg-amber-950/30",
-  },
-  foul: {
-    label: "Faul",
-    toneClass: "border-zinc-300 bg-zinc-50/80 dark:border-zinc-800 dark:bg-zinc-900/40",
-  },
-  yellow_card: {
-    label: "Žlutá karta",
-    toneClass: "border-yellow-300 bg-yellow-50/90 dark:border-yellow-800 dark:bg-yellow-950/30",
-  },
-  red_card: {
-    label: "Červená karta",
-    toneClass: "border-red-300 bg-red-50/90 dark:border-red-800 dark:bg-red-950/30",
-  },
-  error: {
-    label: "Pokazená přihrávka",
-    toneClass: "border-rose-300 bg-rose-50/80 dark:border-rose-800 dark:bg-rose-950/30",
-  },
+const EVENT_TONE: Record<EventType, string> = {
+  goal: "border-emerald-200 bg-emerald-50/70 dark:border-emerald-900 dark:bg-emerald-950/30",
+  assist: "border-lime-200 bg-lime-50/70 dark:border-lime-900 dark:bg-lime-950/30",
+  shot_on_goal: "border-sky-200 bg-sky-50/70 dark:border-sky-900 dark:bg-sky-950/30",
+  shot_off_goal: "border-blue-200 bg-blue-50/70 dark:border-blue-900 dark:bg-blue-950/30",
+  penalty: "border-cyan-200 bg-cyan-50/70 dark:border-cyan-900 dark:bg-cyan-950/30",
+  pass: "border-indigo-200 bg-indigo-50/70 dark:border-indigo-900 dark:bg-indigo-950/30",
+  won_ball: "border-violet-200 bg-violet-50/70 dark:border-violet-900 dark:bg-violet-950/30",
+  lost_ball: "border-fuchsia-200 bg-fuchsia-50/70 dark:border-fuchsia-900 dark:bg-fuchsia-950/30",
+  won_duel: "border-orange-200 bg-orange-50/70 dark:border-orange-900 dark:bg-orange-950/30",
+  lost_duel: "border-amber-200 bg-amber-50/70 dark:border-amber-900 dark:bg-amber-950/30",
+  foul: "border-zinc-300 bg-zinc-50/80 dark:border-zinc-800 dark:bg-zinc-900/40",
+  yellow_card: "border-yellow-300 bg-yellow-50/90 dark:border-yellow-800 dark:bg-yellow-950/30",
+  red_card: "border-red-300 bg-red-50/90 dark:border-red-800 dark:bg-red-950/30",
+  error: "border-rose-300 bg-rose-50/80 dark:border-rose-800 dark:bg-rose-950/30",
 };
 
 type Props = {
@@ -78,42 +32,6 @@ type Props = {
   /** When false, event buttons are disabled (e.g. player not on field) */
   canRecordForPlayer?: (row: RosterWithStatsRow) => boolean;
 };
-
-const EVENT_ORDER: EventType[] = [
-  "goal",
-  "assist",
-  "shot_on_goal",
-  "shot_off_goal",
-  "penalty",
-  "pass",
-  "error",
-  "won_ball",
-  "lost_ball",
-  "won_duel",
-  "lost_duel",
-  "foul",
-  "yellow_card",
-  "red_card",
-];
-
-function statValueForEvent(row: RosterWithStatsRow, event: EventType): number | null {
-  const s = row.stats;
-  if (event === "goal") return s.goals;
-  if (event === "assist") return s.assists;
-  if (event === "error") return s.errors;
-  if (event === "won_ball") return s.won_balls;
-  if (event === "lost_ball") return s.lost_balls;
-  if (event === "foul") return s.fouls;
-  if (event === "pass") return s.passes;
-  if (event === "won_duel") return s.won_duels;
-  if (event === "lost_duel") return s.lost_duels;
-  if (event === "shot_on_goal") return s.shots_on_goal;
-  if (event === "shot_off_goal") return s.shots_off_goal;
-  if (event === "yellow_card") return s.yellow_cards;
-  if (event === "red_card") return s.red_cards;
-  if (event === "penalty") return s.penalties;
-  return null;
-}
 
 export function RosterEventsCard({
   roster,
@@ -174,16 +92,15 @@ export function RosterEventsCard({
 
                   <div className="grid grid-cols-2 gap-1 sm:grid-cols-4 md:grid-cols-7">
                     {EVENT_ORDER.map((event) => {
-                      const value = statValueForEvent(p, event) ?? 0;
-                      const def = EVENT_DEF[event];
+                      const value = p.stats[EVENT_TO_STATS_KEY[event]] ?? 0;
                       return (
                         <div
                           key={event}
-                          className={`rounded border p-0.5 ${def.toneClass}`}
-                          title={def.label}
+                          className={`rounded border p-0.5 ${EVENT_TONE[event]}`}
+                          title={EVENT_LABELS[event]}
                         >
                           <div className="h-4 truncate text-center text-[9px] font-semibold leading-tight">
-                            {def.label}
+                            {EVENT_LABELS[event]}
                           </div>
                           <div className="mb-0.5 text-center tabular-nums text-[9px] font-semibold text-muted-foreground">
                             {value}

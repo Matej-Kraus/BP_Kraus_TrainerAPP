@@ -198,7 +198,7 @@ export default function AnalyticsPage() {
         { k: "Penalty", v: teamStatsQuery.data.penalties },
         { k: "Souboje vyhrané", v: teamStatsQuery.data.won_duels },
         { k: "Souboje prohrané", v: teamStatsQuery.data.lost_duels },
-        { k: "Ztracené míče", v: teamStatsQuery.data.errors },
+        { k: "Chyby", v: teamStatsQuery.data.errors },
         { k: "Získané míče", v: teamStatsQuery.data.won_balls },
       ]
     : [];
