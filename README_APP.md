@@ -1,5 +1,7 @@
 # Trainer App
 
+[![CI](https://github.com/Matej-Kraus/bakalarska/actions/workflows/ci.yml/badge.svg)](https://github.com/Matej-Kraus/bakalarska/actions/workflows/ci.yml)
+
 Webová aplikace pro trenéry a asistenty na evidenci zápasových událostí v reálném čase, vyhodnocení hráčů a sezónní analytiku.
 
 ## Funkce
@@ -110,6 +112,26 @@ Testy lze pustit i proti PostgreSQL: `TRAINERAPP_TEST_DATABASE_URL=postgresql+ps
 cd frontend
 npm run lint
 ```
+
+### Frontend unit testy
+
+```bash
+cd frontend
+npm test
+```
+
+### Typy z API
+
+Po změně backendového API přegeneruj TypeScript typy z OpenAPI (používá `../.venv`):
+
+```bash
+cd frontend
+npm run gen:api   # vytvoří src/api/schema.d.ts
+```
+
+### Průběžná integrace (CI)
+
+GitHub Actions (`.github/workflows/ci.yml`) při každém pushi spouští: ruff + pytest na SQLite, pytest na PostgreSQL 16 a frontend lint + Vitest + build.
 
 ### Frontend build
 
