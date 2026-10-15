@@ -12,3 +12,5 @@ export function clearAccessToken() {
   localStorage.removeItem(TOKEN_KEY);
 }
 
+/** Fired when the server rejects a stored token (expired/invalid) mid-session. */
+export const AUTH_EXPIRED_EVENT = "auth:expired";

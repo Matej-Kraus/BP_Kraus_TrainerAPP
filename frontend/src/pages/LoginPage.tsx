@@ -166,6 +166,12 @@ export default function LoginPage() {
               </div>
             </div>
 
+            {auth.sessionExpired && (
+              <div className="rounded-xl border border-amber-500/60 bg-amber-500/10 p-3 text-sm">
+                Přihlášení vypršelo. Přihlas se prosím znovu.
+              </div>
+            )}
+
             {loginError && (
               <div className="rounded-xl border border-destructive p-3 text-sm text-destructive">
                 {loginError}

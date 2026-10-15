@@ -1,5 +1,5 @@
 import axios from "axios";
-import { clearAccessToken, getAccessToken } from "@/auth/token";
+import { AUTH_EXPIRED_EVENT, clearAccessToken, getAccessToken } from "@/auth/token";
 
 const baseURL =
   typeof import.meta.env.VITE_API_URL === "string" && import.meta.env.VITE_API_URL
@@ -22,8 +22,11 @@ api.interceptors.request.use((config) => {
 api.interceptors.response.use(
   (res) => res,
   (err) => {
-    if (err?.response?.status === 401) {
+    // Only a request that carried a token means "session expired"; a 401 from a failed
+    // login attempt (no token yet) must not look like an expiry.
+    if (err?.response?.status === 401 && getAccessToken()) {
       clearAccessToken();
+      window.dispatchEvent(new Event(AUTH_EXPIRED_EVENT));
     }
     throw err;
   }

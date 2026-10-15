@@ -13,6 +13,7 @@ import {
   type LineupEditorRole,
   type LineupItem,
 } from "@/api/lineup";
+import { getMatch } from "@/api/matches";
 import { useAuth } from "@/auth/AuthContext";
 import { getErrorMessage } from "@/lib/errors";
 
@@ -53,6 +54,16 @@ export default function LineupPage() {
     enabled: isValidId,
     refetchOnWindowFocus: false,
   });
+
+  const matchQuery = useQuery({
+    queryKey: ["match", id],
+    queryFn: () => getMatch(id),
+    enabled: isValidId,
+    refetchOnWindowFocus: false,
+  });
+  // The lineup is locked once the match has started (backend enforces the same).
+  const readOnly = matchQuery.data != null && matchQuery.data.status !== "planned";
+  const canEdit = isCoach && !readOnly;
 
   // Local edits; null = untouched, so the server data is shown.
   const [draft, setDraft] = useState<PlayerRow[] | null>(null);
@@ -158,7 +169,7 @@ export default function LineupPage() {
   }
 
   async function goToLive() {
-    if (await save()) {
+    if (readOnly || (await save())) {
       navigate(`/matches/${id}/live`);
     }
   }
@@ -183,10 +194,10 @@ export default function LineupPage() {
           <Button variant="secondary" onClick={() => navigate("/matches")}>
             Zpět
           </Button>
-          <Button onClick={save} disabled={!isCoach || !canSave || saving}>
+          <Button onClick={save} disabled={!canEdit || !canSave || saving}>
             Uložit
           </Button>
-          <Button onClick={goToLive} disabled={!isCoach || !canSave || saving}>
+          <Button onClick={goToLive} disabled={readOnly ? false : !isCoach || !canSave || saving}>
             Přejít na Live
           </Button>
         </div>
@@ -195,6 +206,14 @@ export default function LineupPage() {
       {error && (
         <Card className="rounded-2xl border-destructive">
           <CardContent className="p-4 text-sm text-destructive">{error}</CardContent>
+        </Card>
+      )}
+
+      {readOnly && (
+        <Card className="rounded-2xl border-amber-500/50 bg-amber-500/10">
+          <CardContent className="p-4 text-sm">
+            Zápas už začal, sestavu nelze měnit.
+          </CardContent>
         </Card>
       )}
 
@@ -241,6 +260,7 @@ export default function LineupPage() {
                           inputMode="numeric"
                           placeholder={`${r.default_jersey_number}`}
                           onChange={(e) => setJersey(r.player_id, e.target.value)}
+                          disabled={!canEdit}
                         />
                       </div>
 
@@ -250,6 +270,7 @@ export default function LineupPage() {
                         type="button"
                         variant={r.role === "starter" ? "default" : "outline"}
                         onClick={() => trySetRole(r.player_id, "starter")}
+                        disabled={!canEdit}
                       >
                         Hraje
                       </Button>
@@ -258,6 +279,7 @@ export default function LineupPage() {
                         type="button"
                         variant={r.role === "sub" ? "default" : "outline"}
                         onClick={() => trySetRole(r.player_id, "sub")}
+                        disabled={!canEdit}
                       >
                         Střídá
                       </Button>
@@ -266,6 +288,7 @@ export default function LineupPage() {
                         type="button"
                         variant={r.role === "out" ? "default" : "outline"}
                         onClick={() => trySetRole(r.player_id, "out")}
+                        disabled={!canEdit}
                       >
                         Nehraje
                       </Button>
