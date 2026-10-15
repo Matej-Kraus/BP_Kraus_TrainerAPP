@@ -1,4 +1,6 @@
-from sqlalchemy import ForeignKey, Integer, String
+from datetime import datetime
+
+from sqlalchemy import DateTime, ForeignKey, Integer, String
 from sqlalchemy.orm import Mapped, mapped_column
 
 from app.db.database import Base
@@ -13,3 +15,5 @@ class Player(Base):
     last_name: Mapped[str] = mapped_column(String, nullable=False)
     jersey_number: Mapped[int] = mapped_column(Integer, nullable=False)
     position: Mapped[str | None] = mapped_column(String, nullable=True)
+    # Set when the player is archived: hidden from rosters/lineups, history is kept.
+    archived_at: Mapped[datetime | None] = mapped_column(DateTime, nullable=True)

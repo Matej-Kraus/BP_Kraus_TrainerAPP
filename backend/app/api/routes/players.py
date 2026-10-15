@@ -5,11 +5,17 @@ from fastapi import APIRouter, Depends, File, Form, HTTPException, Query, Upload
 from sqlalchemy.orm import Session
 
 from app.api.deps import get_current_user, get_db, require_role
+from app.models.match_event import MatchEvent
+from app.models.match_lineup import MatchLineup
+from app.models.match_player_rating import MatchPlayerRating
+from app.models.match_player_stats import MatchPlayerStats
+from app.models.match_substitution import MatchSubstitution
 from app.models.player import Player
 from app.models.season import Season
 from app.models.season_player import SeasonPlayer
 from app.models.user import User
 from app.schemas.player import PlayerCreate, PlayerOut
+from app.util.time import utcnow
 
 router = APIRouter(prefix="/players", tags=["players"])
 
@@ -45,6 +51,7 @@ def create_player(
             Player.club_id == current_user.club_id,
             SeasonPlayer.season_id == season_id,
             Player.jersey_number == payload.jersey_number,
+            Player.archived_at.is_(None),
         )
         .first()
     )
@@ -178,10 +185,13 @@ def import_players_csv(
 @router.get("", response_model=list[PlayerOut])
 def list_players(
     season_id: int | None = Query(default=None),
+    include_archived: bool = Query(default=False),
     db: Session = Depends(get_db),
     current_user: User = Depends(get_current_user),
 ):
     q = db.query(Player).filter(Player.club_id == current_user.club_id)
+    if not include_archived:
+        q = q.filter(Player.archived_at.is_(None))
     if season_id is not None:
         season = (
             db.query(Season)
@@ -195,19 +205,68 @@ def list_players(
         )
     return q.order_by(Player.jersey_number).all()
 
+def _get_club_player(db: Session, player_id: int, club_id: int) -> Player:
+    p = db.query(Player).filter(Player.id == player_id, Player.club_id == club_id).first()
+    if not p:
+        raise HTTPException(status_code=404, detail="Player not found")
+    return p
+
+
+def player_has_match_history(db: Session, player_id: int) -> bool:
+    """True when the player appears in any lineup, event, stat, rating or substitution."""
+    columns = (
+        MatchLineup.player_id,
+        MatchEvent.player_id,
+        MatchPlayerStats.player_id,
+        MatchPlayerRating.player_id,
+        MatchSubstitution.player_out_id,
+        MatchSubstitution.player_in_id,
+    )
+    return any(db.query(col).filter(col == player_id).first() is not None for col in columns)
+
+
 @router.delete("/{player_id}")
 def delete_player(
     player_id: int,
     db: Session = Depends(get_db),
     current_user: User = Depends(require_role("coach")),
 ):
-    p = (
-        db.query(Player)
-        .filter(Player.id == player_id, Player.club_id == current_user.club_id)
-        .first()
-    )
-    if not p:
-        raise HTTPException(status_code=404, detail="Player not found")
+    """Hard-delete only players without match history; otherwise archive them instead."""
+    p = _get_club_player(db, player_id, current_user.club_id)
+    if player_has_match_history(db, p.id):
+        raise HTTPException(
+            status_code=409,
+            detail="Player has match history and cannot be deleted. Archive the player instead.",
+        )
+    db.query(SeasonPlayer).filter(SeasonPlayer.player_id == p.id).delete()
     db.delete(p)
     db.commit()
     return {"ok": True}
+
+
+@router.post("/{player_id}/archive", response_model=PlayerOut)
+def archive_player(
+    player_id: int,
+    db: Session = Depends(get_db),
+    current_user: User = Depends(require_role("coach")),
+):
+    p = _get_club_player(db, player_id, current_user.club_id)
+    if p.archived_at is None:
+        p.archived_at = utcnow()
+        db.commit()
+        db.refresh(p)
+    return p
+
+
+@router.post("/{player_id}/unarchive", response_model=PlayerOut)
+def unarchive_player(
+    player_id: int,
+    db: Session = Depends(get_db),
+    current_user: User = Depends(require_role("coach")),
+):
+    p = _get_club_player(db, player_id, current_user.club_id)
+    if p.archived_at is not None:
+        p.archived_at = None
+        db.commit()
+        db.refresh(p)
+    return p

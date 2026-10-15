@@ -1,3 +1,5 @@
+from datetime import datetime
+
 from pydantic import BaseModel
 
 
@@ -10,6 +12,7 @@ class PlayerCreate(BaseModel):
 
 class PlayerOut(PlayerCreate):
     id: int
+    archived_at: datetime | None = None
 
     class Config:
         from_attributes = True

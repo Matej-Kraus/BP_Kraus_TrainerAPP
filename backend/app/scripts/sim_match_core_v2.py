@@ -83,7 +83,11 @@ def ensure_lineup(db: Session, match: Match, club_id: int) -> list[MatchLineup]:
     players = (
         db.query(Player)
         .join(SeasonPlayer, SeasonPlayer.player_id == Player.id)
-        .filter(Player.club_id == club_id, SeasonPlayer.season_id == match.season_id)
+        .filter(
+            Player.club_id == club_id,
+            SeasonPlayer.season_id == match.season_id,
+            Player.archived_at.is_(None),
+        )
         .order_by(Player.jersey_number.asc())
         .all()
     )

@@ -37,6 +37,8 @@ def get_lineup_editor(
         .all()
     )
     lineup_rows = db.query(MatchLineup).filter(MatchLineup.match_id == match_id).all()
+    nominated_ids = {r.player_id for r in lineup_rows}
+    players = [p for p in players if p.archived_at is None or p.id in nominated_ids]
 
     lineup_by_player = {r.player_id: r for r in lineup_rows}
     taken_numbers = sorted([r.jersey_number_match for r in lineup_rows])
