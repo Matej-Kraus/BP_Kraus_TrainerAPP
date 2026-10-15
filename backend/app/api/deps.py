@@ -6,6 +6,7 @@ from app.db.database import SessionLocal
 from app.models.user import User
 from app.security.tokens import decode_token
 
+
 def get_db():
     db = SessionLocal()
     try:

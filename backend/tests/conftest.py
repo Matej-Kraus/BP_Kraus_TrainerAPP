@@ -14,8 +14,8 @@ os.environ["TRAINERAPP_ALLOW_DB_RESET"] = "true"  # test database is disposable
 # Ensure backend/ is on sys.path for imports like `app.main`
 sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
 
-from app.main import app
-from app.scripts import seed
+from app.main import app  # noqa: E402
+from app.scripts import seed  # noqa: E402
 
 
 @pytest.fixture()

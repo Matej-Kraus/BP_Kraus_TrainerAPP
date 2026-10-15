@@ -1,6 +1,8 @@
 from sqlalchemy import ForeignKey, Integer, String
 from sqlalchemy.orm import Mapped, mapped_column
+
 from app.db.database import Base
+
 
 class Player(Base):
     __tablename__ = "players"

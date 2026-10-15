@@ -1,20 +1,20 @@
 from __future__ import annotations
 
 import os
-from pathlib import Path
 from datetime import datetime
+from pathlib import Path
+
+from alembic.config import Config
 from sqlalchemy import text
 from sqlalchemy.orm import Session
 
 from alembic import command
-from alembic.config import Config
-
 from app.db.database import SessionLocal, engine
 from app.models.club import Club
-from app.models.player import Player
-from app.models.season import Season
 from app.models.match import Match
 from app.models.match_lineup import MatchLineup
+from app.models.player import Player
+from app.models.season import Season
 from app.models.season_player import SeasonPlayer
 from app.models.user import User
 from app.security.passwords import hash_password

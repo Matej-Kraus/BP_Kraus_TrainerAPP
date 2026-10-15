@@ -1,14 +1,14 @@
 from fastapi import APIRouter, Depends, HTTPException
-from sqlalchemy.orm import Session
 from sqlalchemy import and_, case, desc, distinct, func
+from sqlalchemy.orm import Session
 
 from app.api.deps import get_current_user, get_db
 from app.common.stats import row_to_stats, stat_sum_columns, zero_stats
-from app.models.match_event import MatchEvent
 from app.models.match import Match
+from app.models.match_event import MatchEvent
+from app.models.match_player_stats import MatchPlayerStats
 from app.models.player import Player
 from app.models.season import Season
-from app.models.match_player_stats import MatchPlayerStats
 from app.models.user import User
 from app.schemas.report import StatsSumOut, TeamSeasonStatsOut
 

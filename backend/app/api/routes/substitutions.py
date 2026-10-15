@@ -97,12 +97,12 @@ def list_substitutions(
     if not m:
         raise HTTPException(status_code=404, detail="Match not found")
 
-    OutPlayer = aliased(Player)
-    InPlayer = aliased(Player)
+    out_player = aliased(Player)
+    in_player = aliased(Player)
     rows = (
-        db.query(MatchSubstitution, OutPlayer, InPlayer)
-        .join(OutPlayer, OutPlayer.id == MatchSubstitution.player_out_id)
-        .join(InPlayer, InPlayer.id == MatchSubstitution.player_in_id)
+        db.query(MatchSubstitution, out_player, in_player)
+        .join(out_player, out_player.id == MatchSubstitution.player_out_id)
+        .join(in_player, in_player.id == MatchSubstitution.player_in_id)
         .filter(MatchSubstitution.match_id == match_id)
         .order_by(MatchSubstitution.second_in_match.asc(), MatchSubstitution.id.asc())
         .all()

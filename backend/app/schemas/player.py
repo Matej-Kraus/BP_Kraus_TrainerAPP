@@ -1,5 +1,6 @@
 from pydantic import BaseModel
 
+
 class PlayerCreate(BaseModel):
     first_name: str
     last_name: str

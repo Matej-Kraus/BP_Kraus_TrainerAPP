@@ -2,7 +2,6 @@ from pathlib import Path
 
 from pydantic_settings import BaseSettings, SettingsConfigDict
 
-
 BACKEND_DIR = Path(__file__).resolve().parents[2]
 DEFAULT_DB_URL = f"sqlite:///{(BACKEND_DIR / 'app.db').resolve()}"
 

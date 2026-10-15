@@ -1,14 +1,14 @@
 from fastapi import APIRouter, Depends, HTTPException
-from sqlalchemy.orm import Session
 from sqlalchemy import asc
+from sqlalchemy.orm import Session
 
 from app.api.deps import get_current_user, get_db, require_role
-from app.models.player import Player
 from app.models.match import Match
 from app.models.match_lineup import MatchLineup
-from app.models.user import User
+from app.models.player import Player
 from app.models.season_player import SeasonPlayer
-from app.schemas.lineup import LineupSaveRequest, LineupEditorResponse, LineupEditorPlayer
+from app.models.user import User
+from app.schemas.lineup import LineupEditorPlayer, LineupEditorResponse, LineupSaveRequest
 from app.services.lineup_service import save_lineup as lineup_save
 
 router = APIRouter(prefix="/matches", tags=["lineup"])
