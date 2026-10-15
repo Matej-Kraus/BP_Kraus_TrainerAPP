@@ -53,6 +53,7 @@ Demo accounts:
    - save lineup/start/finish
    - export/import (coach-only)
 ## Data correctness checks
-- Verify no negative aggregated stats are produced when using decrement (delta = -1).
+- Verify that "−" undoes the last event of that type for the player, that stats never go negative, and that a removed event disappears from the list and the CSV export.
+- Verify a failed pass ("Nepřesná přihrávka") is counted separately from successful passes.
 - Verify events are rejected unless match is **live**.
 - Verify all data are scoped to the logged-in club.
