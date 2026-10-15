@@ -15,52 +15,15 @@ from app.schemas.analytics import (
     TeamMatchBreakdownRow,
 )
 from app.schemas.stats import MatchPlayerStatsOut
+from app.services.rating_service import AUTO_WEIGHT, COACH_WEIGHT, auto_rating, final_rating
 
 router = APIRouter(tags=["analytics"])
 
 
-def _clamp(v: float, min_v: float, max_v: float) -> float:
-    return min(max_v, max(min_v, v))
-
-
-def _compute_auto_rating_from_stats(stats: MatchPlayerStats) -> float:
-    # Failed passes count against successful ones (as before events v2, when '-' reduced the stat).
-    net_passes = max(0, stats.passes - stats.passes_failed)
-    positive = (
-        stats.goals * 6.3
-        + stats.assists * 4.2
-        + stats.shots_on_goal * 2.2
-        + stats.shots_off_goal * 0.9
-        + net_passes * 0.115
-        + stats.won_duels * 1.08
-        + stats.won_balls * 0.92
-        + stats.penalties * 3.0
-    )
-    negative = (
-        stats.errors * 1.05
-        + stats.lost_balls * 0.22
-        + stats.lost_duels * 0.4
-        + stats.fouls * 0.24
-        + stats.yellow_cards * 0.85
-        + stats.red_cards * 2.7
-    )
-    activity = (
-        net_passes
-        + stats.won_duels
-        + stats.lost_duels
-        + stats.shots_on_goal
-        + stats.shots_off_goal
-        + stats.won_balls
-        + stats.lost_balls
-    )
-    activity_bonus = min(1.95, activity * 0.035)
-    score = positive - negative + activity_bonus + 1.2
-
-    raw_min = -8.0
-    raw_max = 12.0
-    norm = (score - raw_min) / (raw_max - raw_min)
-    scaled = 1 + 9 * _clamp(norm, 0, 1)
-    return round(scaled, 1)
+@router.get("/rating-config")
+def rating_config(_user: User = Depends(get_current_user)):
+    """Weights of the final rating, so clients can preview a rating without duplicating them."""
+    return {"auto_weight": AUTO_WEIGHT, "coach_weight": COACH_WEIGHT}
 
 
 @router.get("/players/{player_id}/performance", response_model=list[PlayerMatchPerformanceRow])
@@ -108,6 +71,7 @@ def player_performance(
 
     resp: list[PlayerMatchPerformanceRow] = []
     for (m, s, r) in rows:
+        auto = auto_rating(s)
         resp.append(
             PlayerMatchPerformanceRow(
                 match_id=m.id,
@@ -118,6 +82,8 @@ def player_performance(
                 stats=MatchPlayerStatsOut.model_validate(s),
                 rating=(r.rating if r else None),
                 note=(r.note if r else None),
+                auto_rating=auto,
+                final_rating=final_rating(auto, r.rating if r else None),
                 passes_success=s.passes,
                 passes_unsuccess=s.passes_failed,
             )
@@ -193,8 +159,8 @@ def season_leaderboards(
         agg["yellow_cards"] += int(stats.yellow_cards or 0)
         agg["red_cards"] += int(stats.red_cards or 0)
 
-        final_rating = float(coach_rating) if coach_rating is not None else _compute_auto_rating_from_stats(stats)
-        agg["rating_sum"] += final_rating
+        match_rating = final_rating(auto_rating(stats), coach_rating)
+        agg["rating_sum"] += match_rating
         agg["rating_count"] += 1
 
     resp: list[LeaderboardRow] = []

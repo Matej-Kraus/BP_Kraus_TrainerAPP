@@ -14,6 +14,8 @@ class PlayerMatchPerformanceRow(BaseModel):
     stats: MatchPlayerStatsOut
     rating: int | None = None
     note: str | None = None
+    auto_rating: float
+    final_rating: float
     # From pass events: +1 / −1 clicks in live recording (successful vs corrected/removed)
     passes_success: int = 0
     passes_unsuccess: int = 0

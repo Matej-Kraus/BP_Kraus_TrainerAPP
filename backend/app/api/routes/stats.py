@@ -6,10 +6,12 @@ from app.api.deps import get_current_user, get_db
 from app.common.stats import row_to_stats, zero_stats
 from app.models.match import Match
 from app.models.match_lineup import MatchLineup
+from app.models.match_player_rating import MatchPlayerRating
 from app.models.match_player_stats import MatchPlayerStats
 from app.models.player import Player
 from app.models.user import User
 from app.schemas.stats import MatchPlayerStatsOut
+from app.services.rating_service import auto_rating, final_rating
 
 router = APIRouter(prefix="/matches", tags=["stats"])
 
@@ -55,12 +57,17 @@ def get_roster_with_stats(
         raise HTTPException(status_code=404, detail="Match not found")
 
     rows = (
-        db.query(MatchLineup, Player, MatchPlayerStats)
+        db.query(MatchLineup, Player, MatchPlayerStats, MatchPlayerRating)
         .join(Player, Player.id == MatchLineup.player_id)
         .outerjoin(
             MatchPlayerStats,
             (MatchPlayerStats.match_id == MatchLineup.match_id)
             & (MatchPlayerStats.player_id == MatchLineup.player_id),
+        )
+        .outerjoin(
+            MatchPlayerRating,
+            (MatchPlayerRating.match_id == MatchLineup.match_id)
+            & (MatchPlayerRating.player_id == MatchLineup.player_id),
         )
         .filter(MatchLineup.match_id == match_id, Player.club_id == current_user.club_id)
         .order_by(asc(MatchLineup.jersey_number_match))
@@ -71,14 +78,21 @@ def get_roster_with_stats(
         # pokud ještě hráč nemá žádný event, tak stats řádek neexistuje => vrať nuly
         return zero_stats() if s is None else row_to_stats(s)
 
-    return [
-        {
-            "player_id": p.id,
-            "first_name": p.first_name,
-            "last_name": p.last_name,
-            "role": lu.role,
-            "jersey_number_match": lu.jersey_number_match,
-            "stats": stats_dict(s),
-        }
-        for (lu, p, s) in rows
-    ]
+    result = []
+    for lu, p, s, r in rows:
+        auto = auto_rating(s)
+        coach = r.rating if r else None
+        result.append(
+            {
+                "player_id": p.id,
+                "first_name": p.first_name,
+                "last_name": p.last_name,
+                "role": lu.role,
+                "jersey_number_match": lu.jersey_number_match,
+                "stats": stats_dict(s),
+                "auto_rating": auto,
+                "coach_rating": coach,
+                "final_rating": final_rating(auto, coach),
+            }
+        )
+    return result
