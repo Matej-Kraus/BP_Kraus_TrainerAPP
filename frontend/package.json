@@ -8,6 +8,7 @@
     "build": "tsc -b && vite build",
     "lint": "eslint .",
     "test": "vitest run",
+    "gen:api": "(cd ../backend && ${PYTHON:-../.venv/bin/python} -m app.scripts.export_openapi) | openapi-typescript -o src/api/schema.d.ts",
     "preview": "vite preview"
   },
   "dependencies": {
@@ -37,6 +38,7 @@
     "eslint-plugin-react-hooks": "^7.0.1",
     "eslint-plugin-react-refresh": "^0.4.24",
     "globals": "^16.5.0",
+    "openapi-typescript": "^7.13.0",
     "playwright": "^1.59.1",
     "postcss": "^8.5.6",
     "tailwindcss": "^3.4.19",
