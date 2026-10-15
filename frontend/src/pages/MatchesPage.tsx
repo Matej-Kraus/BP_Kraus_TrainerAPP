@@ -1,9 +1,11 @@
 import { useEffect, useMemo, useState } from "react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { useNavigate } from "react-router-dom";
+import { toast } from "sonner";
 
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
+import { ConfirmDialog } from "@/components/ConfirmDialog";
 import { Input } from "@/components/ui/input";
 import { useAuth } from "@/auth/AuthContext";
 import {
@@ -11,6 +13,7 @@ import {
   listMatches,
   createMatch,
   deleteMatch,
+  type MatchDto,
 } from "@/api/matches";
 import { listSeasons } from "@/api/seasons";
 import { getActiveSeasonId, onActiveSeasonChange, setActiveSeasonId } from "@/state/season";
@@ -46,6 +49,7 @@ export default function MatchesPage() {
   const [seasonId, setSeasonId] = useState<number>(() => getActiveSeasonId() ?? 1);
   const [err, setErr] = useState<string | null>(null);
   const [creating, setCreating] = useState(false);
+  const [deleteTarget, setDeleteTarget] = useState<MatchDto | null>(null);
 
   const seasonsQuery = useQuery({
     queryKey: ["seasons"],
@@ -268,18 +272,7 @@ export default function MatchesPage() {
                     <Button
                       variant="destructive"
                       disabled={deleteMutation.isPending}
-                      onClick={async () => {
-                        const ok = window.confirm(
-                          `Opravdu smazat zápas #${m.id} vs ${m.opponent}? Tato akce odstraní i události, statistiky, sestavu, střídání a hodnocení.`,
-                        );
-                        if (!ok) return;
-                        try {
-                          setErr(null);
-                          await deleteMutation.mutateAsync(m.id);
-                        } catch (e: unknown) {
-                          setErr(getErrorMessage(e));
-                        }
-                      }}
+                      onClick={() => setDeleteTarget(m)}
                     >
                       Smazat
                     </Button>
@@ -290,6 +283,33 @@ export default function MatchesPage() {
           )}
         </CardContent>
       </Card>
+      <ConfirmDialog
+        open={deleteTarget !== null}
+        onOpenChange={(open) => {
+          if (!open) setDeleteTarget(null);
+        }}
+        title="Smazat zápas?"
+        description={
+          deleteTarget
+            ? `Opravdu smazat zápas #${deleteTarget.id} vs ${deleteTarget.opponent}? Tato akce odstraní i události, statistiky, sestavu, střídání a hodnocení.`
+            : undefined
+        }
+        confirmLabel="Smazat"
+        destructive
+        pending={deleteMutation.isPending}
+        onConfirm={async () => {
+          if (!deleteTarget) return;
+          try {
+            setErr(null);
+            await deleteMutation.mutateAsync(deleteTarget.id);
+            toast.success("Zápas smazán");
+          } catch (e: unknown) {
+            setErr(getErrorMessage(e));
+          } finally {
+            setDeleteTarget(null);
+          }
+        }}
+      />
     </div>
   );
 }

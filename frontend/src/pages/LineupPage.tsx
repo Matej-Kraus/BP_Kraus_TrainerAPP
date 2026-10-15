@@ -1,5 +1,6 @@
 import { useEffect, useMemo, useState } from "react";
 import { useParams, useNavigate } from "react-router-dom";
+import { toast } from "sonner";
 
 import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -158,6 +159,7 @@ export default function LineupPage() {
       };
 
       await api.put(`/matches/${id}/lineup`, payload);
+      toast.success("Sestava uložena");
     } catch (e: unknown) {
       setError(getErrorMessage(e));
       throw e;

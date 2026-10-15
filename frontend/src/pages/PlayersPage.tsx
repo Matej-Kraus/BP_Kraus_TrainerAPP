@@ -1,4 +1,5 @@
 import { useMemo, useState } from "react";
+import { toast } from "sonner";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 
 import {
@@ -17,6 +18,7 @@ import { downloadBlob } from "@/utils/download";
 
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
+import { ConfirmDialog } from "@/components/ConfirmDialog";
 import { Input } from "@/components/ui/input";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 
@@ -68,6 +70,7 @@ export default function PlayersPage() {
   const [jersey, setJersey] = useState<string>("");
   const [position, setPosition] = useState("");
   const [csvFile, setCsvFile] = useState<File | null>(null);
+  const [deleteTarget, setDeleteTarget] = useState<Player | null>(null);
 
   const jerseyNumber = useMemo(() => Number(jersey || "0"), [jersey]);
   const jerseyAlreadyUsed =
@@ -242,13 +245,7 @@ export default function PlayersPage() {
                         variant="outline"
                         size="sm"
                         disabled={!isCoach || deleteMutation.isPending}
-                        onClick={() => {
-                          const ok = window.confirm(
-                            `Opravdu smazat hráče #${p.jersey_number} ${p.first_name} ${p.last_name}?`,
-                          );
-                          if (!ok) return;
-                          deleteMutation.mutate(p.id);
-                        }}
+                        onClick={() => setDeleteTarget(p)}
                       >
                         Smazat
                       </Button>
@@ -276,6 +273,28 @@ export default function PlayersPage() {
           )}
         </CardContent>
       </Card>
+      <ConfirmDialog
+        open={deleteTarget !== null}
+        onOpenChange={(open) => {
+          if (!open) setDeleteTarget(null);
+        }}
+        title="Smazat hráče?"
+        description={
+          deleteTarget
+            ? `Opravdu smazat hráče #${deleteTarget.jersey_number} ${deleteTarget.first_name} ${deleteTarget.last_name}?`
+            : undefined
+        }
+        confirmLabel="Smazat"
+        destructive
+        pending={deleteMutation.isPending}
+        onConfirm={() => {
+          if (!deleteTarget) return;
+          deleteMutation.mutate(deleteTarget.id, {
+            onSuccess: () => toast.success("Hráč smazán"),
+            onSettled: () => setDeleteTarget(null),
+          });
+        }}
+      />
     </div>
   );
 }
