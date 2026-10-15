@@ -98,8 +98,11 @@ Pokud je port obsazený, Vite automaticky zvolí jiný (např. `5174`/`5175`).
 ```bash
 cd backend
 source ../.venv/bin/activate
+pip install -r requirements-dev.txt   # pytest, httpx, ruff
 pytest
 ```
+
+Testy lze pustit i proti PostgreSQL: `TRAINERAPP_TEST_DATABASE_URL=postgresql+psycopg://... pytest` (databáze se při testech maže, použij jednorázovou).
 
 ### Frontend lint
 
