@@ -6,6 +6,7 @@ export type Player = {
   last_name: string;
   jersey_number: number;
   position?: string | null;
+  archived_at?: string | null;
 };
 
 export type ImportPlayersResult = {
@@ -17,8 +18,10 @@ export type ImportPlayersResult = {
   errors: Array<{ line: number; error: string; row: Record<string, unknown> }>;
 };
 
-export async function listPlayers(seasonId?: number) {
-  const params = seasonId != null ? { season_id: seasonId } : undefined;
+export async function listPlayers(seasonId?: number, includeArchived = false) {
+  const params: Record<string, number | boolean> = {};
+  if (seasonId != null) params.season_id = seasonId;
+  if (includeArchived) params.include_archived = true;
   const res = await api.get<Player[]>("/players", { params });
   return res.data;
 }
@@ -54,4 +57,19 @@ export async function importPlayersCsv(file: File, seasonId?: number) {
 export async function exportPlayersCsv() {
   const res = await api.get("/export/players.csv", { responseType: "blob" });
   return res.data as Blob;
+}
+
+export async function archivePlayer(playerId: number) {
+  const res = await api.post<Player>(`/players/${playerId}/archive`);
+  return res.data;
+}
+
+export async function unarchivePlayer(playerId: number) {
+  const res = await api.post<Player>(`/players/${playerId}/unarchive`);
+  return res.data;
+}
+
+export async function removePlayerFromSeason(seasonId: number, playerId: number) {
+  const res = await api.delete(`/seasons/${seasonId}/players/${playerId}`);
+  return res.data;
 }
