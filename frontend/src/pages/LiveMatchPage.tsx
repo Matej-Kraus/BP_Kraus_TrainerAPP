@@ -8,7 +8,8 @@ import { LiveMatchHeader } from "@/features/live-match/components/LiveMatchHeade
 import { RosterEventsCard } from "@/features/live-match/components/RosterEventsCard";
 import { RatingsCard } from "@/features/live-match/components/RatingsCard";
 import { SubstitutionsCard } from "@/features/live-match/components/SubstitutionsCard";
-import { useLiveMatchData, getErrorMessage } from "@/features/live-match/useLiveMatchData";
+import { useLiveMatchData } from "@/features/live-match/useLiveMatchData";
+import { getErrorMessage } from "@/lib/errors";
 import { useAuth } from "@/auth/AuthContext";
 import type { RosterWithStatsRow } from "@/api/types";
 import type { RatingRow } from "@/api/ratings";

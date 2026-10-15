@@ -1,6 +1,5 @@
 import { useCallback, useMemo, useRef, useState } from "react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
-import axios from "axios";
 
 import {
   addEvent,
@@ -19,6 +18,7 @@ import {
 } from "@/api/matches";
 import type { MatchEvent, RosterWithStatsRow } from "@/api/types";
 import { listRatings, saveRatings } from "@/api/ratings";
+import { getErrorMessage } from "@/lib/errors";
 
 const EVENT_TO_STATS_KEY = {
   goal: "goals",
@@ -36,20 +36,6 @@ const EVENT_TO_STATS_KEY = {
   red_card: "red_cards",
   penalty: "penalties",
 } as const;
-
-export function getErrorMessage(err: unknown): string {
-  if (axios.isAxiosError(err)) {
-    const data = err.response?.data;
-    if (typeof data === "object" && data !== null && "detail" in data) {
-      const detail = (data as { detail?: unknown }).detail;
-      if (typeof detail === "string") return detail;
-      if (detail != null) return JSON.stringify(detail);
-    }
-    return err.message;
-  }
-  if (err instanceof Error) return err.message;
-  return "Unknown error";
-}
 
 export function useLiveMatchData(matchId: number, isValidMatchId: boolean) {
   const qc = useQueryClient();

@@ -1,12 +1,12 @@
 import { useEffect, useMemo, useState } from "react";
 import { useParams, useNavigate } from "react-router-dom";
-import axios from "axios";
 
 import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { api } from "@/api/client";
 import { useAuth } from "@/auth/AuthContext";
+import { getErrorMessage } from "@/lib/errors";
 
 type Role = "starter" | "sub" | "out";
 
@@ -24,20 +24,6 @@ type LineupEditorResponse = {
   taken_numbers: number[];
   players: PlayerRow[];
 };
-
-function getErrorMessage(err: unknown): string {
-  if (axios.isAxiosError(err)) {
-    const data = err.response?.data;
-    if (typeof data === "object" && data !== null && "detail" in data) {
-      const detail = (data as { detail?: unknown }).detail;
-      if (typeof detail === "string") return detail;
-      if (detail != null) return JSON.stringify(detail);
-    }
-    return err.message;
-  }
-  if (err instanceof Error) return err.message;
-  return "Unknown error";
-}
 
 function roleText(role: Role) {
   if (role === "starter") return "Hraje";

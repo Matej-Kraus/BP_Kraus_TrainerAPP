@@ -1,23 +1,12 @@
 import { useState } from "react";
 import { useNavigate } from "react-router-dom";
-import axios from "axios";
 
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
 import { useAuth } from "@/auth/AuthContext";
 import type { UserRole } from "@/api/auth";
-
-function getErrorMessage(e: unknown): string {
-  if (axios.isAxiosError(e)) {
-    const detail = e.response?.data?.detail;
-    if (typeof detail === "string" && detail.trim().length > 0) {
-      return detail;
-    }
-    return e.message;
-  }
-  return e instanceof Error ? e.message : "Operace selhala";
-}
+import { getErrorMessage } from "@/lib/errors";
 
 export default function LoginPage() {
   const navigate = useNavigate();

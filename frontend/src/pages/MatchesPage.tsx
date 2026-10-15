@@ -1,6 +1,5 @@
 import { useEffect, useMemo, useState } from "react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
-import axios from "axios";
 import { useNavigate } from "react-router-dom";
 
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
@@ -16,20 +15,7 @@ import {
 import { listSeasons } from "@/api/seasons";
 import { getActiveSeasonId, onActiveSeasonChange, setActiveSeasonId } from "@/state/season";
 import { downloadBlob } from "@/utils/download";
-
-function getErrorMessage(err: unknown): string {
-  if (axios.isAxiosError(err)) {
-    const data = err.response?.data;
-    if (typeof data === "object" && data !== null && "detail" in data) {
-      const detail = (data as { detail?: unknown }).detail;
-      if (typeof detail === "string") return detail;
-      if (detail != null) return JSON.stringify(detail);
-    }
-    return err.message;
-  }
-  if (err instanceof Error) return err.message;
-  return "Unknown error";
-}
+import { getErrorMessage } from "@/lib/errors";
 
 function getNowLocalDateTimeInputValue(): string {
   const now = new Date();

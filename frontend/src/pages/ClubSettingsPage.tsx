@@ -1,25 +1,11 @@
 import { useEffect, useState } from "react";
-import axios from "axios";
 import { useNavigate, useSearchParams } from "react-router-dom";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { useAuth } from "@/auth/AuthContext";
 import * as clubApi from "@/api/club";
-
-function getErrorMessage(err: unknown): string {
-  if (axios.isAxiosError(err)) {
-    const data = err.response?.data;
-    if (typeof data === "object" && data !== null && "detail" in data) {
-      const detail = (data as { detail?: unknown }).detail;
-      if (typeof detail === "string") return detail;
-      if (detail != null) return JSON.stringify(detail);
-    }
-    return err.message;
-  }
-  if (err instanceof Error) return err.message;
-  return "Unknown error";
-}
+import { getErrorMessage } from "@/lib/errors";
 
 export default function ClubSettingsPage() {
   const navigate = useNavigate();
