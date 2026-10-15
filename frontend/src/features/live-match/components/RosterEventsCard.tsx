@@ -14,6 +14,7 @@ const EVENT_TONE: Record<EventType, string> = {
   shot_off_goal: "border-blue-200 bg-blue-50/70 dark:border-blue-900 dark:bg-blue-950/30",
   penalty: "border-cyan-200 bg-cyan-50/70 dark:border-cyan-900 dark:bg-cyan-950/30",
   pass: "border-indigo-200 bg-indigo-50/70 dark:border-indigo-900 dark:bg-indigo-950/30",
+  pass_failed: "border-purple-200 bg-purple-50/70 dark:border-purple-900 dark:bg-purple-950/30",
   won_ball: "border-violet-200 bg-violet-50/70 dark:border-violet-900 dark:bg-violet-950/30",
   lost_ball: "border-fuchsia-200 bg-fuchsia-50/70 dark:border-fuchsia-900 dark:bg-fuchsia-950/30",
   won_duel: "border-orange-200 bg-orange-50/70 dark:border-orange-900 dark:bg-orange-950/30",

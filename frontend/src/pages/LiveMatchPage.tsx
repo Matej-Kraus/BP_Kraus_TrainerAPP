@@ -7,6 +7,7 @@ import { Button } from "@/components/ui/button";
 import { LiveMatchHeader } from "@/features/live-match/components/LiveMatchHeader";
 import { RosterEventsCard } from "@/features/live-match/components/RosterEventsCard";
 import { RatingsCard } from "@/features/live-match/components/RatingsCard";
+import { TimelineCard } from "@/features/live-match/components/TimelineCard";
 import { SubstitutionsCard } from "@/features/live-match/components/SubstitutionsCard";
 import { useLiveMatchData } from "@/features/live-match/useLiveMatchData";
 import { getErrorMessage } from "@/lib/errors";
@@ -46,7 +47,10 @@ export default function LiveMatchPage() {
     halfTimeMutation,
     startSecondHalfMutation,
     finishMutation,
-    enqueueMatchEvent,
+    enqueueAddEvent,
+    enqueueUndoEvent,
+    deleteEventMutation,
+    lastEvents,
     pendingEventCount,
     eventSyncError,
     saveRatingsMutation,
@@ -99,6 +103,8 @@ export default function LiveMatchPage() {
 
   const canRecord =
     match?.status === "live_half_1" || match?.status === "live_half_2";
+  // Events can also be corrected during the half-time break.
+  const canEditEvents = canRecord || match?.status === "half_time";
 
   /** Compute match time (total seconds) at a given moment. Used so each event stores the exact timestamp when the user clicked. */
   const getMatchSecondsAt = (atMs: number): number => {
@@ -215,15 +221,27 @@ export default function LiveMatchPage() {
         canRecordForPlayer={(row) => row.on_field === true}
         onDelta={async (playerId, type, delta) => {
           setError(null);
-          const clickTimeMs = Date.now();
-          enqueueMatchEvent({
-            playerId,
-            delta,
-            eventType: type,
-            half,
-            secondInMatch: getMatchSecondsAt(clickTimeMs),
-          });
+          if (delta === 1) {
+            enqueueAddEvent({
+              playerId,
+              eventType: type,
+              half,
+              secondInMatch: getMatchSecondsAt(Date.now()),
+            });
+          } else {
+            // "-" removes the most recent event of this type for the player.
+            enqueueUndoEvent({ playerId, eventType: type });
+          }
         }}
+      />
+
+      <TimelineCard
+        events={lastEvents.slice(0, 15)}
+        roster={roster}
+        canDelete={canEditEvents}
+        onDelete={(ev) =>
+          deleteEventMutation.mutate(ev, { onError: (e) => setError(getErrorMessage(e)) })
+        }
       />
 
       {substitutionSuccess && (

@@ -121,6 +121,7 @@ export type EventType =
   | "lost_ball"
   | "foul"
   | "pass"
+  | "pass_failed"
   | "won_duel"
   | "lost_duel"
   | "shot_on_goal"
@@ -133,16 +134,33 @@ export async function addEvent(params: {
   matchId: number;
   playerId: number;
   eventType: EventType;
-  delta: 1 | -1;
   half: 1 | 2;
   secondInMatch: number;
+  /** Same id sent twice returns the existing event (safe retries). */
+  clientEventId?: string;
 }) {
   const res = await api.post<MatchEvent>(`/matches/${params.matchId}/events`, {
     player_id: params.playerId,
     event_type: params.eventType,
-    delta: params.delta,
     half: params.half,
     second_in_match: params.secondInMatch,
+    client_event_id: params.clientEventId,
   });
   return res.data;
+}
+
+/** Undo the most recent event of this type for this player (the live "-" button). */
+export async function undoLastEvent(params: {
+  matchId: number;
+  playerId: number;
+  eventType: EventType;
+}) {
+  const res = await api.delete<MatchEvent>(`/matches/${params.matchId}/events/last`, {
+    params: { player_id: params.playerId, event_type: params.eventType },
+  });
+  return res.data;
+}
+
+export async function deleteEvent(matchId: number, eventId: number) {
+  await api.delete(`/matches/${matchId}/events/${eventId}`);
 }

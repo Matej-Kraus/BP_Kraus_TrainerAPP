@@ -27,12 +27,14 @@ function clamp(v: number, min: number, max: number): number {
 }
 
 function computeAutoRating(stats: PlayerStats): number {
+  // Failed passes count against successful ones (same as the backend).
+  const netPasses = Math.max(0, stats.passes - stats.passes_failed);
   const positive =
     stats.goals * 6.3 +
     stats.assists * 4.2 +
     stats.shots_on_goal * 2.2 +
     stats.shots_off_goal * 0.9 +
-    stats.passes * 0.115 +
+    netPasses * 0.115 +
     stats.won_duels * 1.08 +
     stats.won_balls * 0.92 +
     stats.penalties * 3;
@@ -47,7 +49,7 @@ function computeAutoRating(stats: PlayerStats): number {
 
   // Small activity bonus so active players are not undervalued.
   const activity =
-    stats.passes +
+    netPasses +
     stats.won_duels +
     stats.lost_duels +
     stats.shots_on_goal +
@@ -203,9 +205,8 @@ export default function MatchEvaluationPage() {
     let success = 0;
     let unsuccess = 0;
     events.forEach((ev) => {
-      if (ev.event_type !== "pass") return;
-      if (ev.delta > 0) success += 1;
-      if (ev.delta < 0) unsuccess += 1;
+      if (ev.event_type === "pass") success += 1;
+      if (ev.event_type === "pass_failed") unsuccess += 1;
     });
     const total = success + unsuccess;
     const accuracy = total > 0 ? success / total : null;
@@ -216,10 +217,10 @@ export default function MatchEvaluationPage() {
     const map = new Map<number, { success: number; unsuccess: number }>();
     const events = eventsQuery.data ?? [];
     events.forEach((ev) => {
-      if (ev.event_type !== "pass") return;
+      if (ev.event_type !== "pass" && ev.event_type !== "pass_failed") return;
       const cur = map.get(ev.player_id) ?? { success: 0, unsuccess: 0 };
-      if (ev.delta > 0) cur.success += 1;
-      if (ev.delta < 0) cur.unsuccess += 1;
+      if (ev.event_type === "pass") cur.success += 1;
+      else cur.unsuccess += 1;
       map.set(ev.player_id, cur);
     });
     return map;
@@ -235,8 +236,6 @@ export default function MatchEvaluationPage() {
 
     let maxBucketIndex = -1;
     events.forEach((ev) => {
-      // Only count +1 events; -1 is typically undo in UI
-      if (ev.delta <= 0) return;
       const idx = Math.floor(ev.second_in_match / BUCKET_SECONDS);
       if (idx > maxBucketIndex) maxBucketIndex = idx;
     });
@@ -276,15 +275,14 @@ export default function MatchEvaluationPage() {
       if (!bucket) return;
 
       if (ev.event_type === "pass") {
-        if (ev.delta > 0) {
-          bucket.total += 1;
-          bucket.passesSuccess += 1;
-        } else if (ev.delta < 0) {
-          bucket.passesUnsuccess += 1;
-        }
+        bucket.total += 1;
+        bucket.passesSuccess += 1;
         return;
       }
-      if (ev.delta <= 0) return;
+      if (ev.event_type === "pass_failed") {
+        bucket.passesUnsuccess += 1;
+        return;
+      }
       bucket.total += 1;
       switch (ev.event_type) {
         case "shot_on_goal":

@@ -191,7 +191,10 @@ export default function AnalyticsPage() {
         { k: "Střely mimo bránu (tým)", v: teamStatsQuery.data.shots_off_goal },
         { k: "Přihrávky úspěšné", v: teamStatsQuery.data.passes_success },
         { k: "Přihrávky neúspěšné", v: teamStatsQuery.data.passes_unsuccess },
-        { k: "Přihrávky celkem (netto)", v: teamStatsQuery.data.passes },
+        {
+          k: "Přihrávky celkem",
+          v: teamStatsQuery.data.passes + teamStatsQuery.data.passes_failed,
+        },
         { k: "Fauly", v: teamStatsQuery.data.fouls },
         { k: "Žluté karty", v: teamStatsQuery.data.yellow_cards },
         { k: "Červené karty", v: teamStatsQuery.data.red_cards },

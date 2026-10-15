@@ -6,6 +6,7 @@ export type PlayerStats = {
     lost_balls: number;
     fouls: number;
     passes: number;
+    passes_failed: number;
     won_duels: number;
     lost_duels: number;
     shots_on_goal: number;
@@ -33,4 +34,6 @@ export type MatchEvent = {
   delta: number;
   half: 1 | 2;
   second_in_match: number;
+  client_event_id?: string | null;
+  created_by_email?: string | null;
 };

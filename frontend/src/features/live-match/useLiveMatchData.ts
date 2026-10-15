@@ -4,6 +4,7 @@ import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import {
   addEvent,
   createSubstitution,
+  deleteEvent,
   finishMatch,
   getMatch,
   getRosterWithStats,
@@ -12,6 +13,7 @@ import {
   setHalfTime,
   startMatch,
   startSecondHalf,
+  undoLastEvent,
   type EventType,
   type MatchDto,
   type SubstitutionDto,
@@ -20,20 +22,32 @@ import type { MatchEvent, RosterWithStatsRow } from "@/api/types";
 import { listRatings, saveRatings } from "@/api/ratings";
 import { getErrorMessage } from "@/lib/errors";
 import { EVENT_TO_STATS_KEY } from "@/lib/events";
+import { newClientId } from "@/lib/ids";
+
+type AddEventInput = {
+  playerId: number;
+  eventType: EventType;
+  half: 1 | 2;
+  secondInMatch: number;
+  clientEventId: string;
+};
+
+/** Writes are queued so they reach the server in order (an undo must follow its add). */
+type QueueItem =
+  | ({ kind: "add" } & AddEventInput)
+  | { kind: "undo"; playerId: number; eventType: EventType };
+
+type OptimisticContext = {
+  previousRoster?: RosterWithStatsRow[];
+  previousEvents?: MatchEvent[];
+};
 
 export function useLiveMatchData(matchId: number, isValidMatchId: boolean) {
   const qc = useQueryClient();
   const [pendingEventCount, setPendingEventCount] = useState(0);
   const [eventSyncError, setEventSyncError] = useState<string | null>(null);
-  const eventQueueRef = useRef<
-    Array<{
-      playerId: number;
-      delta: 1 | -1;
-      eventType: EventType;
-      half: 1 | 2;
-      secondInMatch: number;
-    }>
-  >([]);
+  const eventQueueRef = useRef<QueueItem[]>([]);
+  const optimisticIdRef = useRef(0);
   const isProcessingQueueRef = useRef(false);
 
   const matchQuery = useQuery({
@@ -98,77 +112,108 @@ export function useLiveMatchData(matchId: number, isValidMatchId: boolean) {
     onSuccess: invalidateLive,
   });
 
+  const adjustRosterStat = (playerId: number, eventType: string, by: 1 | -1) => {
+    const statKey = EVENT_TO_STATS_KEY[eventType as EventType];
+    if (!statKey) return;
+    qc.setQueryData<RosterWithStatsRow[]>(["roster-with-stats", matchId], (old) =>
+      (old ?? []).map((row) =>
+        row.player_id !== playerId
+          ? row
+          : {
+              ...row,
+              stats: { ...row.stats, [statKey]: Math.max(0, (row.stats[statKey] ?? 0) + by) },
+            },
+      ),
+    );
+  };
+
+  const snapshotLiveCaches = async (): Promise<OptimisticContext> => {
+    await qc.cancelQueries({ queryKey: ["roster-with-stats", matchId] });
+    await qc.cancelQueries({ queryKey: ["events", matchId] });
+    return {
+      previousRoster: qc.getQueryData<RosterWithStatsRow[]>(["roster-with-stats", matchId]),
+      previousEvents: qc.getQueryData<MatchEvent[]>(["events", matchId]),
+    };
+  };
+
+  const rollbackLiveCaches = (ctx?: OptimisticContext) => {
+    if (!ctx) return;
+    if (ctx.previousRoster) qc.setQueryData(["roster-with-stats", matchId], ctx.previousRoster);
+    if (ctx.previousEvents) qc.setQueryData(["events", matchId], ctx.previousEvents);
+  };
+
   const addEventMutation = useMutation({
-    mutationFn: (p: {
-      playerId: number;
-      delta: 1 | -1;
-      eventType: EventType;
-      half: 1 | 2;
-      secondInMatch: number;
-    }) =>
+    mutationFn: (p: AddEventInput) =>
       addEvent({
         matchId,
         playerId: p.playerId,
         eventType: p.eventType,
-        delta: p.delta,
         half: p.half,
         secondInMatch: p.secondInMatch,
+        clientEventId: p.clientEventId,
       }),
     onMutate: async (p) => {
-      await qc.cancelQueries({ queryKey: ["roster-with-stats", matchId] });
-      await qc.cancelQueries({ queryKey: ["events", matchId] });
-
-      const previousRoster = qc.getQueryData<RosterWithStatsRow[]>(["roster-with-stats", matchId]);
-      const previousEvents = qc.getQueryData<MatchEvent[]>(["events", matchId]);
-
-      const statKey = EVENT_TO_STATS_KEY[p.eventType];
-      if (previousRoster && statKey) {
-        qc.setQueryData<RosterWithStatsRow[]>(["roster-with-stats", matchId], (old) =>
-          (old ?? []).map((row) => {
-            if (row.player_id !== p.playerId) return row;
-            const current = row.stats[statKey] ?? 0;
-            const next = Math.max(0, current + p.delta);
-            return {
-              ...row,
-              stats: {
-                ...row.stats,
-                [statKey]: next,
-              },
-            };
-          }),
-        );
-      }
-
-      const optimisticId = -Date.now();
+      const ctx = await snapshotLiveCaches();
+      adjustRosterStat(p.playerId, p.eventType, 1);
+      optimisticIdRef.current -= 1;
       const optimisticEvent: MatchEvent = {
-        id: optimisticId,
+        id: optimisticIdRef.current,
         match_id: matchId,
         player_id: p.playerId,
         event_type: p.eventType,
-        delta: p.delta,
+        delta: 1,
         half: p.half,
         second_in_match: p.secondInMatch,
+        client_event_id: p.clientEventId,
       };
       qc.setQueryData<MatchEvent[]>(["events", matchId], (old) => [...(old ?? []), optimisticEvent]);
-
-      return { previousRoster, previousEvents, optimisticId };
+      return { ...ctx, optimisticId: optimisticEvent.id };
     },
-    onError: (_err, _vars, ctx) => {
-      if (!ctx) return;
-      if (ctx.previousRoster) {
-        qc.setQueryData(["roster-with-stats", matchId], ctx.previousRoster);
-      }
-      if (ctx.previousEvents) {
-        qc.setQueryData(["events", matchId], ctx.previousEvents);
-      }
-    },
+    onError: (_err, _vars, ctx) => rollbackLiveCaches(ctx),
     onSuccess: (serverEvent, _vars, ctx) => {
       qc.setQueryData<MatchEvent[]>(["events", matchId], (old) => {
         if (!old) return [serverEvent];
-        return old.map((ev) =>
-          ev.id === ctx?.optimisticId ? serverEvent : ev
-        );
+        return old.map((ev) => (ev.id === ctx?.optimisticId ? serverEvent : ev));
       });
+    },
+  });
+
+  const undoEventMutation = useMutation({
+    mutationFn: (p: { playerId: number; eventType: EventType }) =>
+      undoLastEvent({ matchId, playerId: p.playerId, eventType: p.eventType }),
+    onMutate: async (p) => {
+      const ctx = await snapshotLiveCaches();
+      adjustRosterStat(p.playerId, p.eventType, -1);
+      qc.setQueryData<MatchEvent[]>(["events", matchId], (old) => {
+        const list = old ?? [];
+        let idx = -1;
+        for (let i = list.length - 1; i >= 0; i -= 1) {
+          if (list[i].player_id === p.playerId && list[i].event_type === p.eventType) {
+            idx = i;
+            break;
+          }
+        }
+        return idx < 0 ? list : list.filter((_, i) => i !== idx);
+      });
+      return ctx;
+    },
+    onError: (_err, _vars, ctx) => rollbackLiveCaches(ctx),
+  });
+
+  /** Remove one specific event (e.g. from the "last events" list). */
+  const deleteEventMutation = useMutation({
+    mutationFn: (ev: MatchEvent) => deleteEvent(matchId, ev.id),
+    onMutate: async (ev) => {
+      const ctx = await snapshotLiveCaches();
+      adjustRosterStat(ev.player_id, ev.event_type, -1);
+      qc.setQueryData<MatchEvent[]>(["events", matchId], (old) =>
+        (old ?? []).filter((e) => e.id !== ev.id),
+      );
+      return ctx;
+    },
+    onError: (_err, _vars, ctx) => rollbackLiveCaches(ctx),
+    onSettled: () => {
+      void qc.invalidateQueries({ queryKey: ["roster-with-stats", matchId] });
     },
   });
 
@@ -235,7 +280,11 @@ export function useLiveMatchData(matchId: number, isValidMatchId: boolean) {
         setPendingEventCount(eventQueueRef.current.length);
         if (!next) continue;
         try {
-          await addEventMutation.mutateAsync(next);
+          if (next.kind === "add") {
+            await addEventMutation.mutateAsync(next);
+          } else {
+            await undoEventMutation.mutateAsync(next);
+          }
         } catch (err: unknown) {
           setEventSyncError(getErrorMessage(err));
         }
@@ -243,23 +292,30 @@ export function useLiveMatchData(matchId: number, isValidMatchId: boolean) {
     } finally {
       isProcessingQueueRef.current = false;
       setPendingEventCount(0);
+      // Stats are derived on the server: resync once the queue is drained.
+      void qc.invalidateQueries({ queryKey: ["roster-with-stats", matchId] });
     }
-  }, [addEventMutation]);
+  }, [addEventMutation, undoEventMutation, qc, matchId]);
 
-  const enqueueMatchEvent = useCallback(
-    (p: {
-      playerId: number;
-      delta: 1 | -1;
-      eventType: EventType;
-      half: 1 | 2;
-      secondInMatch: number;
-    }) => {
+  const enqueue = useCallback(
+    (item: QueueItem) => {
       setEventSyncError(null);
-      eventQueueRef.current.push(p);
+      eventQueueRef.current.push(item);
       setPendingEventCount(eventQueueRef.current.length);
       void processEventQueue();
     },
     [processEventQueue],
+  );
+
+  const enqueueAddEvent = useCallback(
+    (p: Omit<AddEventInput, "clientEventId">) =>
+      enqueue({ kind: "add", ...p, clientEventId: newClientId() }),
+    [enqueue],
+  );
+
+  const enqueueUndoEvent = useCallback(
+    (p: { playerId: number; eventType: EventType }) => enqueue({ kind: "undo", ...p }),
+    [enqueue],
   );
 
   return {
@@ -276,7 +332,9 @@ export function useLiveMatchData(matchId: number, isValidMatchId: boolean) {
     startSecondHalfMutation,
     finishMutation,
     addEventMutation,
-    enqueueMatchEvent,
+    deleteEventMutation,
+    enqueueAddEvent,
+    enqueueUndoEvent,
     pendingEventCount,
     eventSyncError,
     saveRatingsMutation,
