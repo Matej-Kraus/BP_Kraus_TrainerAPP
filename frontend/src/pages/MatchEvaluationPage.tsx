@@ -7,6 +7,7 @@ import { Input } from "@/components/ui/input";
 import { useAuth } from "@/auth/AuthContext";
 import { useLiveMatchData } from "@/features/live-match/useLiveMatchData";
 import { getErrorMessage } from "@/lib/errors";
+import { formatDateTime, matchStatusLabel } from "@/lib/format";
 import type { PlayerStats } from "@/api/types";
 import type { RatingRow } from "@/api/ratings";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
@@ -64,19 +65,6 @@ function computeAutoRating(stats: PlayerStats): number {
   const norm = (score - rawMin) / (rawMax - rawMin);
   const scaled = 1 + 9 * clamp(norm, 0, 1);
   return Math.round(scaled * 10) / 10; // one decimal
-}
-
-function formatMatchDateTime(value: string | null | undefined): string {
-  if (!value) return "—";
-  const d = new Date(value);
-  if (Number.isNaN(d.getTime())) return value;
-  return d.toLocaleString("cs-CZ", {
-    day: "2-digit",
-    month: "2-digit",
-    year: "numeric",
-    hour: "2-digit",
-    minute: "2-digit",
-  });
 }
 
 function computeFinalRating(autoRating: number, coachRating?: number | null): number {
@@ -459,7 +447,7 @@ export default function MatchEvaluationPage() {
           <div>
             <div className="text-lg font-semibold">Hodnocení zápasu</div>
             <div className="text-sm text-muted-foreground">
-              {match.opponent} • {formatMatchDateTime(match.match_date)} • ID {match.id}
+              {match.opponent} • {formatDateTime(match.match_date)} • ID {match.id}
             </div>
             <div className="text-sm text-muted-foreground">
               Zápas ještě není ukončen. Nejprve ukonči zápas na obrazovce Live.
@@ -479,10 +467,10 @@ export default function MatchEvaluationPage() {
             <div>
               <div className="text-xl font-semibold">Vyhodnocení zápasu</div>
               <div className="text-sm text-slate-200/90 mt-1">
-                {match?.opponent ?? "Soupeř"} • {formatMatchDateTime(match?.match_date)} • ID {matchId}
+                {match?.opponent ?? "Soupeř"} • {formatDateTime(match?.match_date)} • ID {matchId}
               </div>
               <div className="text-xs text-slate-300/90 mt-0.5">
-                Stav: {match?.status ?? "Načítám…"}
+                Stav: {matchStatusLabel(match?.status)}
               </div>
             </div>
             <Button variant="secondary" onClick={() => navigate("/matches")}>

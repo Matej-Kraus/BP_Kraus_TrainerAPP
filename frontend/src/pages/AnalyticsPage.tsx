@@ -11,6 +11,7 @@ import {
   teamMatchesBreakdown,
 } from "@/api/analytics";
 import { listPlayers } from "@/api/players";
+import { formatDate } from "@/lib/format";
 import { getActiveSeasonId, onActiveSeasonChange, setActiveSeasonId } from "@/state/season";
 
 import {
@@ -23,10 +24,6 @@ import {
   XAxis,
   YAxis,
 } from "recharts";
-
-function ymd(d: string) {
-  return d.length >= 10 ? d.slice(0, 10) : d;
-}
 
 function shortOpp(name: string, max = 14) {
   return name.length <= max ? name : `${name.slice(0, max - 1)}…`;
@@ -165,7 +162,7 @@ export default function AnalyticsPage() {
     return (teamBreakdownQuery.data ?? []).map((r, i) => ({
       key: `${r.match_id}-${i}`,
       label: shortOpp(r.opponent, 12),
-      date: ymd(r.match_date),
+      date: formatDate(r.match_date),
       goals: r.goals,
       assists: r.assists,
       shots_on_goal: r.shots_on_goal,
@@ -570,7 +567,7 @@ export default function AnalyticsPage() {
                         className="border-b border-border/50 hover:bg-muted/20"
                       >
                         <td className="py-2.5 px-2 tabular-nums whitespace-nowrap text-muted-foreground">
-                          {ymd(row.match_date)}
+                          {formatDate(row.match_date)}
                         </td>
                         <td className="py-2.5 px-2 font-medium">{row.opponent}</td>
                         <td className="py-2.5 px-2 tabular-nums text-center">

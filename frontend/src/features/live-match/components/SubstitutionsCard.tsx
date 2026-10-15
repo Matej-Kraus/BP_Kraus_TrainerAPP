@@ -3,7 +3,8 @@ import { Button } from "@/components/ui/button";
 
 import type { RosterWithStatsRow } from "@/api/types";
 import type { SubstitutionDto } from "@/api/matches";
-import { formatTime, playerName } from "@/features/live-match/utils";
+import { formatClock } from "@/lib/format";
+import { playerName } from "@/features/live-match/utils";
 import { useState } from "react";
 
 type Props = {
@@ -133,7 +134,7 @@ export function SubstitutionsCard({
                 >
                   <div className="flex items-center justify-between">
                     <span className="font-medium text-muted-foreground">
-                      {formatTime(s.second_in_match)} — poločas {s.half}
+                      {formatClock(s.second_in_match)} — poločas {s.half}
                     </span>
                     <span className="text-xs text-muted-foreground">#{s.id}</span>
                   </div>

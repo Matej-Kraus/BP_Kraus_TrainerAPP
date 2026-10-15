@@ -3,7 +3,7 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import type { EventType } from "@/api/matches";
 
-import { formatTime } from "../utils";
+import { formatClock } from "@/lib/format";
 
 const EVENT_LABEL: Record<EventType, string> = {
   goal: "Gól",
@@ -73,7 +73,7 @@ export function EventControlsCard({
               inputMode="numeric"
               onChange={(e) => onSecondChange(Number(e.target.value || 0))}
             />
-            <div className="text-xs text-muted-foreground">{formatTime(secondInMatch)}</div>
+            <div className="text-xs text-muted-foreground">{formatClock(secondInMatch)}</div>
           </div>
 
           <div className="space-y-1 md:col-span-2">

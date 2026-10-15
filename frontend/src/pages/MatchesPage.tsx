@@ -16,6 +16,7 @@ import { listSeasons } from "@/api/seasons";
 import { getActiveSeasonId, onActiveSeasonChange, setActiveSeasonId } from "@/state/season";
 import { downloadBlob } from "@/utils/download";
 import { getErrorMessage } from "@/lib/errors";
+import { formatDateTime, matchStatusLabel } from "@/lib/format";
 
 function getNowLocalDateTimeInputValue(): string {
   const now = new Date();
@@ -231,7 +232,9 @@ export default function MatchesPage() {
                     #{m.id} vs {m.opponent}
                   </div>
                   <div className="text-xs text-muted-foreground">
-                    {m.competition} • {m.match_date} • {m.status}
+                    {[m.competition, formatDateTime(m.match_date), matchStatusLabel(m.status)]
+                      .filter(Boolean)
+                      .join(" • ")}
                   </div>
                 </div>
 

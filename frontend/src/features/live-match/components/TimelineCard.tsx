@@ -4,7 +4,8 @@ import type { MatchEvent, RosterWithStatsRow } from "@/api/types";
 import type { EventType } from "@/api/matches";
 
 import { EVENT_LABEL } from "./EventControlsCard";
-import { formatTime, playerName } from "@/features/live-match/utils";
+import { formatClock } from "@/lib/format";
+import { playerName } from "@/features/live-match/utils";
 
 type Props = {
   events: MatchEvent[];
@@ -46,7 +47,7 @@ export function TimelineCard({ events, roster }: Props) {
                     {ev.delta})
                   </div>
                   <div className="text-xs text-muted-foreground">
-                    {formatTime(ev.second_in_match)} • poločas {ev.half} •{" "}
+                    {formatClock(ev.second_in_match)} • poločas {ev.half} •{" "}
                     {who ? `#${who.jersey_number_match} ${playerName(who)}` : `player_id=${ev.player_id}`}
                   </div>
                 </div>

@@ -3,6 +3,7 @@ import { Button } from "@/components/ui/button";
 
 import { useAuth } from "@/auth/AuthContext";
 import type { MatchStatus } from "@/api/matches";
+import { formatClock, matchStatusLabel } from "@/lib/format";
 
 type Props = {
   matchId: number;
@@ -22,23 +23,6 @@ type Props = {
   setError: (msg: string | null) => void;
   getErrorMessage: (err: unknown) => string;
 };
-
-function formatClock(sec: number) {
-  const s = Math.max(0, Math.floor(sec));
-  const mm = String(Math.floor(s / 60)).padStart(2, "0");
-  const ss = String(s % 60).padStart(2, "0");
-  return `${mm}:${ss}`;
-}
-
-function statusLabel(status: MatchStatus | null) {
-  if (!status) return "Načítám…";
-  if (status === "planned") return "Plánováno";
-  if (status === "live_half_1") return "1. poločas";
-  if (status === "half_time") return "Poločas";
-  if (status === "live_half_2") return "2. poločas";
-  if (status === "finished") return "Ukončeno";
-  return status;
-}
 
 type PendingAction = "start_1" | "half_time" | "start_2" | "finish";
 
@@ -105,7 +89,7 @@ export function LiveMatchHeader({
       <div className="flex flex-col">
         <div className="text-lg font-semibold">Live zápas</div>
         <div className="text-xs text-muted-foreground">
-          Zápas ID: {matchId} • Stav: {statusLabel(status)} • Poločas:{" "}
+          Zápas ID: {matchId} • Stav: {matchStatusLabel(status)} • Poločas:{" "}
           {status === "planned" ? "—" : half} • Čas: {formatClock(clockSeconds)}
         </div>
       </div>
